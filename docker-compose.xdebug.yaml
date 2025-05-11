@@ -1,0 +1,6 @@
+services:
+  app:
+    volumes:
+      - ./php/conf.d/xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini:ro
+    environment:
+      XDEBUG_MODE: "${XDEBUG_MODE:-debug}"
