@@ -1,0 +1,159 @@
+# WebSocket Data Flow Overview
+
+This document outlines the data flow for your WebSocket setup, from initial connection to message exchange, as described in the `test.html` example and your Nginx/PHP server configuration.
+
+---
+
+## Key Components
+
+- **Client (User's Web Browser):**
+  - Runs `test.html` (HTML, CSS, JavaScript).
+  - Uses the browser's built-in WebSocket API.
+  - Accesses the application via `http://localhost`.
+
+- **Nginx (Reverse Proxy):**
+  - Runs in the `web` Docker service.
+  - Listens on host port 80.
+  - Proxies requests for the `/ws/` path to the WebSocket server.
+
+- **PHP WebSocket Server (Ratchet):**
+  - Runs in the `websocket` Docker service.
+  - Listens on an internal port (e.g., 9001 as configured).
+  - The `App\WebSocket\Chat` class handles WebSocket events (`onOpen`, `onMessage`, etc.).
+
+- **Docker Network:**
+  - Internal network allowing services (`web`, `websocket`) to communicate by their service names.
+
+---
+
+## Flow 1: Initial WebSocket Connection (Handshake)
+
+```text
++--------------------------+     HTTP GET /ws/ (Upgrade Request)     +--------------------------+     Proxy Upgrade Request      +--------------------------+
+|      CLIENT BROWSER      |  ----------------------------------->  |      NGINX (Port 80)     |  --------------------------->  |   PHP WEBSOCKET SERVER   |
+| (test.html, JavaScript)  |                                        | (web service)            |                                | (websocket service:9001) |
+| `new WebSocket(...)`     |     1. Client initiates connection     |                          |     2. Nginx proxies to WS     |                          |
++--------------------------+                                        +--------------------------+     service on Docker network   +--------------------------+
+           ^                                                                                                                                   |
+           |                                                                                                                                   | 3. Ratchet's onOpen
+           |  HTTP 101 Switching Protocols (Handshake ACK)                                                                                     |    is triggered
+           |  <------------------------------------                                                                                            |
+           |                                        +--------------------------+     Proxy Handshake ACK      +--------------------------+    |
+           |  6. Nginx forwards ACK to client       |      NGINX (Port 80)     |  <---------------------------  |   PHP WEBSOCKET SERVER   |    |
+           |                                        | (web service)            |                                | (websocket service:9001) |    |
+           +--------------------------+             +--------------------------+     5. Server sends ACK        +--------------------------+    |
+           |      CLIENT BROWSER      |                                                                                                           |
+           | `conn.onopen` fires      |                                                                                                           V
+           |                          |                                                                              +--------------------------+
+           |                          |     WebSocket Message: "Welcome!"                                            |   PHP WEBSOCKET SERVER   |
+           |  <----------------------------------------------------------------------------------------------------  | `Chat::onOpen()` sends   |
+           | `conn.onmessage` receives                                                                                | welcome message          |
+           | "Welcome!"               |     7. Server sends initial message over established WS connection           +--------------------------+
+           +--------------------------+
+```
+
+### Step-by-Step (Handshake)
+
+1. **Client Initiates:**
+   - User opens `test.html`.
+   - JavaScript executes:  
+     `conn = new WebSocket('ws://localhost/ws/');`
+   - The browser sends an HTTP GET request to `http://localhost/ws/` with special headers:
+     - `Upgrade: websocket`
+     - `Connection: Upgrade`
+     - `Sec-WebSocket-Key: [randomly generated key]`
+
+2. **Nginx Receives & Proxies:**
+   - Nginx (listening on port 80) receives the request.
+   - The `location /ws/ { ... }` block in Nginx configuration matches.
+   - Nginx proxies this HTTP request (including the upgrade headers) to the websocket service on its internal port (e.g., 9001) over the Docker network:  
+     `proxy_pass http://websocket:9001;`
+
+3. **PHP WebSocket Server Processes Handshake:**
+   - The PHP Ratchet server (listening on its internal port, e.g., 9001) receives the upgrade request.
+   - It validates the request and prepares a handshake response.
+
+4. **PHP WebSocket Server Responds (ACK):**
+   - If the server accepts the upgrade, it sends back an HTTP response with status code `101 Switching Protocols`. This response includes:
+     - `Upgrade: websocket`
+     - `Connection: Upgrade`
+     - `Sec-WebSocket-Accept: [key derived from client's key]`
+
+5. **Nginx Forwards ACK:**
+   - Nginx receives the `101` response from the PHP WebSocket server.
+   - Nginx forwards this `101` response back to the client browser.
+
+6. **Client Establishes Connection:**
+   - The browser receives the `101` response. The HTTP connection is now "upgraded" to a persistent, bidirectional WebSocket connection.
+   - The `conn.onopen` event fires in the client's JavaScript.
+   - The client is now ready to send and receive WebSocket messages (frames).
+
+7. **Server Sends Initial Message (Optional but in our example):**
+   - In your `Chat::onOpen()` method on the server, you send a "Welcome!" message to the newly connected client (`$conn->send(...)`).
+   - This message travels over the newly established WebSocket connection (through Nginx) to the client.
+   - The client's `conn.onmessage` event fires, displaying the "Welcome!" message.
+
+---
+
+## Flow 2: Client Sends a Message (Echo Example)
+
+```text
++--------------------------+     WebSocket Frame: "Hello"       +--------------------------+     Forward WebSocket Frame    +--------------------------+
+|      CLIENT BROWSER      |  ----------------------------------->  |      NGINX (Port 80)     |  --------------------------->  |   PHP WEBSOCKET SERVER   |
+| (test.html, JavaScript)  |                                        | (web service)            |                                | (websocket service:9001) |
+| `conn.send("Hello")`     |     1. Client sends message            |                          |     2. Nginx forwards frame    |                          |
++--------------------------+                                        +--------------------------+     over established WS conn   +--------------------------+
+           ^                                                                                                                                   |
+           |                                                                                                                                   | 3. Ratchet's onMessage
+           |  WebSocket Frame: "Hello" (Echoed)                                                                                                |    is triggered
+           |  <------------------------------------                                                                                            |
+           |                                        +--------------------------+     Forward WebSocket Frame    +--------------------------+    |
+           |  6. Nginx forwards echo to client      |      NGINX (Port 80)     |  <---------------------------  |   PHP WEBSOCKET SERVER   |    |
+           |                                        | (web service)            |                                | (websocket service:9001) |    |
+           +--------------------------+             +--------------------------+     5. Server echoes message   +--------------------------+    |
+           |      CLIENT BROWSER      |                                                                                                           |
+           | `conn.onmessage` receives|                                                                                                           V
+           | "Hello"                  |                                                                              +--------------------------+
+           +--------------------------+                                                                              |   PHP WEBSOCKET SERVER   |
+                                                                                                                      | `Chat::onMessage()` calls|
+                                                                                                                      | `$from->send($msg)`      |
+                                                                                                                      +--------------------------+
+                                                                                                                            4. Server logic
+```
+
+### Step-by-Step (Client Sends Message)
+
+1. **Client Sends Message:**
+   - User types "Hello" in the input field and clicks "Send".
+   - JavaScript executes:  
+     `conn.send("Hello");`
+   - The browser sends a WebSocket data frame containing "Hello" over the established WebSocket connection.
+
+2. **Nginx Forwards Frame:**
+   - Nginx, maintaining the persistent connection, receives the WebSocket frame.
+   - It forwards this frame to the websocket service (PHP Ratchet server) over the Docker network.
+
+3. **PHP WebSocket Server Receives Message:**
+   - The PHP Ratchet server receives the WebSocket frame.
+   - The `Chat::onMessage(ConnectionInterface $from, $msg)` method is triggered.
+   - `$from` is the `ConnectionInterface` object representing the client that sent the message.
+   - `$msg` contains the string "Hello".
+
+4. **Server Logic (Echo):**
+   - Inside `Chat::onMessage()`, your code `$from->send($msg);` is executed. This tells the server to send the received message ("Hello") back to the same client that sent it (`$from`).
+
+5. **PHP WebSocket Server Sends Echo:**
+   - The PHP Ratchet server sends a new WebSocket data frame containing "Hello" back to the originating client, via Nginx.
+
+6. **Nginx Forwards Echo:**
+   - Nginx forwards the echoed WebSocket frame from the PHP server to the client browser.
+
+7. **Client Receives Echoed Message:**
+   - The client browser receives the WebSocket frame.
+   - The `conn.onmessage` event fires in JavaScript.
+   - `event.data` contains "Hello".
+   - The `addMessage("Server Echo", e.data)` function displays the echoed message on the page.
+
+---
+
+This flow illustrates the persistent, bidirectional nature of WebSockets after the initial HTTP handshake. Nginx acts as a transparent proxy for these WebSocket frames.
