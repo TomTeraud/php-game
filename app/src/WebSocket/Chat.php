@@ -1,69 +1,121 @@
 <?php
 // app/src/WebSocket/Chat.php
-namespace App\WebSocket; // Ensure this matches your composer.json PSR-4 autoloading for "App\\" -> "src/"
+namespace App\WebSocket;
 
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
+use PDO; // For MySQL
+use PDOException; // For error handling
 
 class Chat implements MessageComponentInterface {
     protected $clients;
+    protected $db; // PDO database connection object
 
     public function __construct() {
-        // SplObjectStorage is used to store all connected clients
         $this->clients = new \SplObjectStorage;
-        echo "Simple Echo WebSocket server initialized.\n";
-        echo "Any message received from a client will be echoed back to that client.\n";
+        $this->initializeDbConnection();
     }
 
-    /**
-     * Called when a new client has connected
-     * @param ConnectionInterface $conn The new connection
-     */
     public function onOpen(ConnectionInterface $conn) {
-        // Store the new connection
         $this->clients->attach($conn);
+        $broadcastMsg = sprintf("User %s connected", $conn->resourceId);
+        $conn->send("Welcome! Messages you send may be stored in MySQL. Recent messages:");
+        $this->broadcastToOtherClients($broadcastMsg, $conn);
 
-        echo "New connection! ({$conn->resourceId})\n";
-
-        // Send a welcome message to the newly connected client
-        $conn->send("Welcome! This is an echo server. Send a message, and I'll send it back to you.");
+        // Send last 5 messages (MySQL example)
+        if ($this->db) {
+            try {
+                $stmt = $this->db->query("SELECT client_resource_id, message_text, received_at FROM chat_messages ORDER BY received_at DESC LIMIT 5");
+                $recentMessages = $stmt->fetchAll();
+                if ($recentMessages) {
+                    foreach (array_reverse($recentMessages) as $message) { // Reverse to show oldest of the 5 first
+                        $conn->send(sprintf("[%s] User %s: %s", $message['received_at'], $message['client_resource_id'], htmlspecialchars($message['message_text'])));
+                    }
+                } else {
+                    $conn->send("System: No recent messages found.");
+                }
+            } catch (PDOException $e) {
+                echo "Error fetching recent messages: " . $e->getMessage() . "\n";
+                $conn->send("System: Could not retrieve recent messages.");
+            }
+        } else {
+            $conn->send("System: Database (MySQL) connection not available for recent messages.");
+        }
     }
 
-    /**
-     * Called when a message is received from a client
-     * @param ConnectionInterface $from The connection that sent the message
-     * @param string $msg The message received
-     */
     public function onMessage(ConnectionInterface $from, $msg) {
-        $numRecv = count($this->clients) -1; // Not really relevant for echo, but can be kept for logging
         echo sprintf('Connection %d sending message "%s"' . "\n", $from->resourceId, $msg);
 
-        // --- This is the core of the "Simple Echo" ---
-        // Send the received message ($msg) back to the original sender ($from)
-        $from->send($msg);
-        echo "Echoed message back to Connection {$from->resourceId}.\n";
+        // Store in MySQL
+        if ($this->db) {
+            try {
+                $stmt = $this->db->prepare("INSERT INTO chat_messages (client_resource_id, message_text) VALUES (?, ?)");
+                $stmt->execute([$from->resourceId, $msg]);
+                echo "Message from {$from->resourceId} stored in database.\n";
+            } catch (PDOException $e) {
+                echo "Error storing message in MySQL: " . $e->getMessage() . "\n";
+                $from->send("System: Error: Message not stored in MySQL.");
+            }
+        } else {
+            $from->send("System: Error: MySQL not connected. Message not stored.");
+        }
+
+        // Broadcast original message to all clients
+        $broadcastMsg = sprintf("User %s: %s", $from->resourceId, htmlspecialchars($msg));
+        $this->broadcastToOtherClients($broadcastMsg, $from);
     }
 
-    /**
-     * Called when a client disconnects
-     * @param ConnectionInterface $conn The connection that disconnected
-     */
     public function onClose(ConnectionInterface $conn) {
-        // The connection is closed, remove it, as we can no longer send it messages
+        $broadcastMsg = sprintf("User %s disconnected", $conn->resourceId);
         $this->clients->detach($conn);
-
         echo "Connection {$conn->resourceId} has disconnected\n";
+        // Notify other clients about the disconnection
+        $this->broadcastToOtherClients($broadcastMsg, $conn->resourceId);
     }
 
-    /**
-     * Called when an error occurs on a connection
-     * @param ConnectionInterface $conn The connection that experienced the error
-     * @param \Exception $e The exception that occurred
-     */
     public function onError(ConnectionInterface $conn, \Exception $e) {
         echo "An error has occurred on connection {$conn->resourceId}: {$e->getMessage()}\n";
-
-        // It's good practice to close the connection on error
         $conn->close();
+    }
+
+    protected function initializeDbConnection() {
+        $dbHost = getenv('MYSQL_HOST') ?: 'db';
+        $dbName = getenv('MYSQL_DATABASE') ?: 'your_db_name';
+        $dbUser = getenv('MYSQL_USER') ?: 'your_db_user';
+        $dbPass = getenv('MYSQL_PASSWORD') ?: 'your_db_password';
+        $dsn = "mysql:host={$dbHost};dbname={$dbName};charset=utf8mb4";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
+
+        $maxRetries = 5; // Number of times to retry connecting
+        $retryDelay = 3; // Seconds to wait between retries
+
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            try {
+                $this->db = new PDO($dsn, $dbUser, $dbPass, $options);
+                echo "Successfully connected to MySQL database '{$dbName}' on attempt {$attempt}.\n";
+                return; // Connection successful, exit the method
+            } catch (PDOException $e) {
+                echo "Database Connection Error (Attempt {$attempt}/{$maxRetries}): " . $e->getMessage() . "\n";
+                if ($attempt < $maxRetries) {
+                    echo "Retrying in {$retryDelay} seconds...\n";
+                    sleep($retryDelay); // Wait before retrying
+                } else {
+                    echo "Failed to connect to the database after {$maxRetries} attempts.\n";
+                    $this->db = null; // Ensure $this->db is null if connection failed
+                }
+            }
+        }
+    }
+
+    protected function broadcastToOtherClients($message, $from) {
+        foreach ($this->clients as $client) {
+            if ($client !== $from) {
+                $client->send($message);
+            }
+        }
     }
 }

@@ -5,7 +5,9 @@ COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr
 
 # Install php extensions
 RUN set -eux; \
-    install-php-extensions pdo pdo_mysql;
+    install-php-extensions \
+        pdo \
+        pdo_mysql
 
 # Allow super user - set this if you use Composer as a super user at all times like in docker containers
 ENV COMPOSER_ALLOW_SUPERUSER=1
