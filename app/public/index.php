@@ -1,17 +1,20 @@
-<!DOCTYPE html>
-<html>
+<?php
+session_start();
+$title = "Welcome";
+?>
 
-<head>
-    <title>PHP Test</title>
-</head>
+<?php include __DIR__ . '/../views/partials/header.php'; ?>
+<?php include __DIR__ . '/../views/partials/nav.php'; ?>
 
-<body>
-    <a href="register.php">
-        <button type="button">Register</button>
+<h2>Welcome to the Chat App</h2>
+
+<?php if (isset($_SESSION['user_id'])): ?>
+    <p>You are logged in as <?= htmlspecialchars($_SESSION['username']) ?>.</p>
+    <a href="chatroom.php">
+        <button type="button">Enter Chat</button>
     </a>
-    <a href="test.html">
-        <button type="button">Enter chat</button>
+<?php else: ?>
+    <p>Please <a href="/views/login.php">log in</a> to enter the chat.</p>
+<?php endif; ?>
 
-</body>
-
-</html>
+<?php include __DIR__ . '/../views/partials/footer.php'; ?>

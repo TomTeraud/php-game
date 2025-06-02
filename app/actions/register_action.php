@@ -46,7 +46,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         echo <<<HTML
         <h2>Registration successful!</h2>
-        <form action="index.php">
+        <form action="/../index.php">
             <button type="submit">Go to Home</button>
         </form>
         HTML;
