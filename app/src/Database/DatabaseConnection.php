@@ -34,10 +34,22 @@ class DatabaseConnection
 
         $dsn = "mysql:host={$host};port={$port};dbname={$db};charset={$this->charset}";
 
-        try {
-            $this->pdo = new PDO($dsn, $user, $pass, self::OPTIONS);
-        } catch (PDOException $e) {
-            throw new PDOException("Connection failed: " . $e->getMessage(), (int)$e->getCode(), $e);
+        $maxAttempts = 5;
+        $attempt = 0;
+
+        while ($attempt < $maxAttempts) {
+            try {
+                $attempt++;
+                $this->pdo = new PDO($dsn, $user, $pass, self::OPTIONS);
+                error_log("DB connection attempt {$attempt}/{$maxAttempts} succeeded: ");
+                break; // success
+            } catch (PDOException $e) {
+                if ($attempt === $maxAttempts) {
+                    throw new PDOException("Connection failed after {$maxAttempts} attempts: " . $e->getMessage(), (int)$e->getCode(), $e);
+                }
+                error_log("DB connection attempt {$attempt}/{$maxAttempts} failed: " . $e->getMessage());
+                sleep(2); // wait before retrying
+            }
         }
     }
 
