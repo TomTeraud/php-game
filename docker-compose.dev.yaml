@@ -37,6 +37,7 @@ services:
       REDIS_HOST: cache
       REDIS_PORT: ${REDIS_PORT}
       # Add other necessary environment variables
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
     extra_hosts:
       # Allows the container to resolve 'host.docker.internal' to the host gateway
       # Useful for Xdebug or connecting back to services running on the host machine.
