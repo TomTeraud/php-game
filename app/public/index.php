@@ -1,6 +1,13 @@
 <?php
-session_start();
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+use App\Auth\TokenAuthenticator;
+
 $title = "Welcome";
+
+$user = \App\Auth\TokenAuthenticator::authenticate();
+
 ?>
 
 <?php include __DIR__ . '/../views/partials/header.php'; ?>
@@ -8,8 +15,8 @@ $title = "Welcome";
 
 <h2>Welcome to the Chat App</h2>
 
-<?php if (isset($_SESSION['user_id'])): ?>
-    <p>You are logged in as <?= htmlspecialchars($_SESSION['username']) ?>.</p>
+<?php if ($user): ?>
+    <p>You are logged in as <?= htmlspecialchars($user->username) ?>.</p>
     <a href="chatroom.php">
         <button type="button">Enter Chat</button>
     </a>

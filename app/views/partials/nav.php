@@ -1,6 +1,6 @@
 <nav>
-    <?php if (isset($_SESSION['user_id'])): ?>
-        <span>Welcome, <?= htmlspecialchars($_SESSION['username']) ?>!</span>
+    <?php if ($user): ?>
+        <span>Welcome, <?= htmlspecialchars($user->username) ?>!</span>
 
         <?php
             $current_page = basename($_SERVER['PHP_SELF']);
