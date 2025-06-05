@@ -1,7 +1,7 @@
 <?php
-session_start();
+require_once __DIR__ . '/../bootstrap/auth.php';
 
-if (!isset($_SESSION['user_id'])) {
+if (!$user) {
     header("Location: index.php");
     exit;
 }

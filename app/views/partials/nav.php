@@ -1,3 +1,5 @@
+<?php require_once __DIR__ . '/../../bootstrap/auth.php'; ?>
+
 <nav>
     <?php if ($user): ?>
         <span>Welcome, <?= htmlspecialchars($user->username) ?>!</span>

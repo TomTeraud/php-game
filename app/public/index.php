@@ -1,17 +1,13 @@
 <?php
 
 require_once __DIR__ . '/../vendor/autoload.php';
-
-use App\Auth\TokenAuthenticator;
+require_once __DIR__ . '/../bootstrap/auth.php';
 
 $title = "Welcome";
 
-$user = \App\Auth\TokenAuthenticator::authenticate();
-
+include __DIR__ . '/../views/partials/header.php';
+include __DIR__ . '/../views/partials/nav.php'; 
 ?>
-
-<?php include __DIR__ . '/../views/partials/header.php'; ?>
-<?php include __DIR__ . '/../views/partials/nav.php'; ?>
 
 <h2>Welcome to the Chat App</h2>
 
