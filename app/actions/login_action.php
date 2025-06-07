@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($user && password_verify($password, $user['password'])) {
         $token = TokenGenerator::create()->generateToken([
-            'user_id'  => $user['id'],
+            'userId'  => $user['id'],
             'username' => $user['username'],
             'email'    => $user['email']
         ]);

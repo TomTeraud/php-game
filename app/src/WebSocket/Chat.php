@@ -36,9 +36,6 @@ class Chat implements MessageComponentInterface
                 // Token is valid! Store user data with the connection for later use
                 $conn->userId = $decodedUserData->userId;
                 $conn->username = $decodedUserData->username;
-
-                // error_log("WebSocket connection established for user:!!!!!!!!!!!!!!!!! " . $decodedUserData->username);
-                // $conn->send(json_encode(['status' => 'success', 'message' => 'Connected!', 'userId' => $decodedUserData->userId]));
             } else {
                 // Token is invalid or decode failed. Reject the connection.
                 error_log("WebSocket connection rejected: Invalid or expired token.");
@@ -51,18 +48,18 @@ class Chat implements MessageComponentInterface
         }
 
         $this->clients->attach($conn);
-        $broadcastMsg = sprintf("User %s connected", $conn->resourceId);
+        $broadcastMsg = sprintf("User %s connected", $conn->username);
         $conn->send("Welcome! Messages you send may be stored in MySQL. Recent messages:");
         $this->broadcastToOtherClients($broadcastMsg, $conn);
 
         // Send last 5 messages (MySQL example)
         if ($this->db) {
             try {
-                $stmt = $this->db->query("SELECT client_resource_id, message_text, received_at FROM chat_messages ORDER BY received_at DESC LIMIT 5");
+                $stmt = $this->db->query("SELECT username, message_text, received_at FROM chat_messages ORDER BY received_at DESC LIMIT 5");
                 $recentMessages = $stmt->fetchAll();
                 if ($recentMessages) {
                     foreach (array_reverse($recentMessages) as $message) { // Reverse to show oldest of the 5 first
-                        $conn->send(sprintf("[%s] User %s: %s", $message['received_at'], $message['client_resource_id'], htmlspecialchars($message['message_text'])));
+                        $conn->send(sprintf("[%s] User %s: %s", $message['received_at'], $message['username'], htmlspecialchars($message['message_text'])));
                     }
                 } else {
                     $conn->send("System: No recent messages found.");
@@ -78,14 +75,14 @@ class Chat implements MessageComponentInterface
 
     public function onMessage(ConnectionInterface $from, $msg)
     {
-        $senderId = $from->resourceId;
+        $username = $from->username;
         if ($this->db) {
             try {
                 $stmt = $this->db->prepare(
-                    "INSERT INTO chat_messages (client_resource_id, message_text) VALUES (:id, :msg)"
+                    "INSERT INTO chat_messages (username, message_text) VALUES (:username, :msg)"
                 );
-                $stmt->execute([':id' => $senderId, ':msg' => $msg]);
-                echo "Message from {$from->resourceId} stored in database.\n";
+                $stmt->execute([':username' => $username, ':msg' => $msg]);
+                echo "Message from {$from->username} stored in database.\n";
             } catch (PDOException $e) {
                 echo "Error storing message in MySQL: " . $e->getMessage() . "\n";
                 $from->send("System: Error: Message not stored in MySQL.");
@@ -95,7 +92,7 @@ class Chat implements MessageComponentInterface
         }
 
         // Broadcast original message to all clients
-        $broadcastMsg = sprintf("User %s: %s", $senderId, htmlspecialchars($msg));
+        $broadcastMsg = sprintf("User %s: %s", $username, htmlspecialchars($msg));
         $this->broadcastToOtherClients($broadcastMsg, $from);
     }
 
