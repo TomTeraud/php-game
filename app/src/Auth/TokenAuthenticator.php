@@ -59,6 +59,7 @@ class TokenAuthenticator
             return $decoded->data ?? (object)[];
         } catch (Exception $e) {
             self::sendErrorResponse(401, 'Invalid or expired token: ' . $e->getMessage());
+            exit;
         }
     }
 
@@ -111,5 +112,17 @@ class TokenAuthenticator
             'code' => $statusCode,
         ]);
         exit;
+    }
+
+    public static function decode(string $token): ?object
+    {
+        try {
+            $jwtSecretKey = self::getJwtSecretKey();
+            $decoded = JWT::decode($token, new Key($jwtSecretKey, 'HS256'));
+            return $decoded->data ?? null;
+        } catch (Exception $e) {
+            error_log("[Auth Debug] Token decode failed in WebSocket: " . $e->getMessage());
+            return null;
+        }
     }
 }

@@ -6,7 +6,7 @@ use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
 use App\Database\DatabaseConnection;
 use PDOException;
-
+use App\Auth\TokenAuthenticator;
 
 class Chat implements MessageComponentInterface
 {
@@ -21,6 +21,35 @@ class Chat implements MessageComponentInterface
 
     public function onOpen(ConnectionInterface $conn)
     {
+
+        $request = $conn->httpRequest;
+        $cookieHeader = $request->getHeaderLine('Cookie');
+
+        parse_str(str_replace('; ', '&', $cookieHeader), $cookies);
+
+        $token = $cookies['token'] ?? null;
+       
+        if ($token) {
+            $decodedUserData = TokenAuthenticator::decode($token);
+
+            if ($decodedUserData) {
+                // Token is valid! Store user data with the connection for later use
+                $conn->userId = $decodedUserData->userId;
+                $conn->username = $decodedUserData->username;
+
+                // error_log("WebSocket connection established for user:!!!!!!!!!!!!!!!!! " . $decodedUserData->username);
+                // $conn->send(json_encode(['status' => 'success', 'message' => 'Connected!', 'userId' => $decodedUserData->userId]));
+            } else {
+                // Token is invalid or decode failed. Reject the connection.
+                error_log("WebSocket connection rejected: Invalid or expired token.");
+                $conn->close(); // Close the connection
+            }
+        } else {
+            // No token provided. Reject the connection.
+            error_log("WebSocket connection rejected: No token provided.");
+            $conn->close(); // Close the connection
+        }
+
         $this->clients->attach($conn);
         $broadcastMsg = sprintf("User %s connected", $conn->resourceId);
         $conn->send("Welcome! Messages you send may be stored in MySQL. Recent messages:");
