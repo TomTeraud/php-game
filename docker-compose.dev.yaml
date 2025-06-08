@@ -67,6 +67,7 @@ services:
       - ./.env:/var/www/html/.env
       - ./.env.local:/var/www/html/.env.local
     working_dir: /var/www/html
+    init: true # This tells Docker to use tini (or its built-in init) as PID 1
     command: ["php", "bin/websocket-server.php"] # Command to start the WebSocket server
     # 'expose' can be used for inter-container communication if not mapping to host.
     # Nginx will connect to this service on its internal port (e.g., 9001).
