@@ -19,7 +19,7 @@ This document outlines the data flow for your WebSocket setup, from initial conn
 - **PHP WebSocket Server (Ratchet):**
   - Runs in the `websocket` Docker service.
   - Listens on an internal port (e.g., 9001 as configured).
-  - The `App\WebSocket\Chat` class handles WebSocket events (`onOpen`, `onMessage`, etc.).
+  - The `App\WebSocket\GameServer` class handles WebSocket events (`onOpen`, `onMessage`, etc.).
 
 - **Docker Network:**
   - Internal network allowing services (`web`, `websocket`) to communicate by their service names.
@@ -46,7 +46,7 @@ This document outlines the data flow for your WebSocket setup, from initial conn
            | `conn.onopen` fires      |                                                                                                           V
            |                          |                                                                              +--------------------------+
            |                          |     WebSocket Message: "Welcome!"                                            |   PHP WEBSOCKET SERVER   |
-           |  <----------------------------------------------------------------------------------------------------  | `Chat::onOpen()` sends   |
+           |  <----------------------------------------------------------------------------------------------------  | `GameServer::onOpen()` sends   |
            | `conn.onmessage` receives                                                                                | welcome message          |
            | "Welcome!"               |     7. Server sends initial message over established WS connection           +--------------------------+
            +--------------------------+
@@ -89,7 +89,7 @@ This document outlines the data flow for your WebSocket setup, from initial conn
    - The client is now ready to send and receive WebSocket messages (frames).
 
 7. **Server Sends Initial Message (Optional but in our example):**
-   - In your `Chat::onOpen()` method on the server, you send a "Welcome!" message to the newly connected client (`$conn->send(...)`).
+   - In your `GameServer::onOpen()` method on the server, you send a "Welcome!" message to the newly connected client (`$conn->send(...)`).
    - This message travels over the newly established WebSocket connection (through Nginx) to the client.
    - The client's `conn.onmessage` event fires, displaying the "Welcome!" message.
 
@@ -115,7 +115,7 @@ This document outlines the data flow for your WebSocket setup, from initial conn
            | `conn.onmessage` receives|                                                                                                           V
            | "Hello"                  |                                                                              +--------------------------+
            +--------------------------+                                                                              |   PHP WEBSOCKET SERVER   |
-                                                                                                                      | `Chat::onMessage()` calls|
+                                                                                                                      | `GameServer::onMessage()` calls|
                                                                                                                       | `$from->send($msg)`      |
                                                                                                                       +--------------------------+
                                                                                                                             4. Server logic
@@ -135,12 +135,12 @@ This document outlines the data flow for your WebSocket setup, from initial conn
 
 3. **PHP WebSocket Server Receives Message:**
    - The PHP Ratchet server receives the WebSocket frame.
-   - The `Chat::onMessage(ConnectionInterface $from, $msg)` method is triggered.
+   - The `GameServer::onMessage(ConnectionInterface $from, $msg)` method is triggered.
    - `$from` is the `ConnectionInterface` object representing the client that sent the message.
    - `$msg` contains the string "Hello".
 
 4. **Server Logic (Echo):**
-   - Inside `Chat::onMessage()`, your code `$from->send($msg);` is executed. This tells the server to send the received message ("Hello") back to the same client that sent it (`$from`).
+   - Inside `GameServer::onMessage()`, your code `$from->send($msg);` is executed. This tells the server to send the received message ("Hello") back to the same client that sent it (`$from`).
 
 5. **PHP WebSocket Server Sends Echo:**
    - The PHP Ratchet server sends a new WebSocket data frame containing "Hello" back to the originating client, via Nginx.

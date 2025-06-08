@@ -26,6 +26,8 @@ services:
     volumes:
       - ./app:/var/www/html
       - ./app/vendor:/var/www/html/vendor # This maps your local ./app/vendor
+      - ./.env:/var/www/html/.env
+      - ./.env.local:/var/www/html/.env.local
     working_dir: /var/www/html # Sets the default working directory for commands
     environment:
       # Environment variables for database and Redis connection
@@ -62,6 +64,8 @@ services:
     volumes:
       - ./app:/var/www/html
       - ./app/vendor:/var/www/html/vendor
+      - ./.env:/var/www/html/.env
+      - ./.env.local:/var/www/html/.env.local
     working_dir: /var/www/html
     command: ["php", "bin/websocket-server.php"] # Command to start the WebSocket server
     # 'expose' can be used for inter-container communication if not mapping to host.

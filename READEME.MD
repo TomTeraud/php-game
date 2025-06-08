@@ -61,7 +61,7 @@ If you see errors from your IDE about undefined classes (like Ratchet's), ensure
 ### 6. Development Workflow Notes
 
 - **PHP Code Changes (WebSocket Server):**  
-  If you modify PHP files for the WebSocket server (e.g., `app/src/WebSocket/Chat.php`), you need to restart the websocket service for the changes to take effect, as the PHP script runs as a long-lived process:
+  If you modify PHP files for the WebSocket server (e.g., `app/src/WebSocket/GameServer.php`), you need to restart the websocket service for the changes to take effect, as the PHP script runs as a long-lived process:
   ```bash
   docker compose -f docker-compose.dev.yaml --env-file .env.local restart websocket
   ```

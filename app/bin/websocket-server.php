@@ -1,35 +1,47 @@
 <?php
-// bin/websocket-server.php
 
-// Use statements for Ratchet classes and your application's WebSocket component
 use Ratchet\Server\IoServer;
 use Ratchet\Http\HttpServer;
 use Ratchet\WebSocket\WsServer;
-use App\WebSocket\Chat; // Ensure this namespace and class exist and implement MessageComponentInterface
+use App\WebSocket\GameServer;
+use App\Database\DatabaseConnection;
+use App\Service\AuthService;
+use App\Repository\ChatMessageRepository;
+use Dotenv\Dotenv;
 
-// Require the Composer autoloader to load dependencies
-require dirname(__DIR__) . '/vendor/autoload.php'; // Assumes vendor is one level up from bin/
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+try {
+    // The .env files are located at /var/www/html/ in the container
+    $dotenv = Dotenv::createImmutable('/var/www/html/');
+    $dotenv->load();
+} catch (\Dotenv\Exception\InvalidPathException $e) {
+    error_log("Warning: .env.local file not found or could not be loaded: " . $e->getMessage());
+}
 
 echo "Starting WebSocket server on port 9001...\n";
 
-// Create the server instance
+// Instantiate your services/repositories
+$pdoConnection = DatabaseConnection::getInstance()->getPdo();
+$chatMessageRepository = new ChatMessageRepository($pdoConnection);
+$authService = new AuthService();
+
+// Pass the services to the GameServer constructor
+$gameServer = new GameServer($authService, $chatMessageRepository);
+
 $server = IoServer::factory(
-    // Wrap your core application logic (Chat class) within the WebSocket and HTTP server protocols
+    // Wrap your core application logic (GameServer class) within the WebSocket and HTTP server protocols
     new HttpServer(
         new WsServer(
-            // Instantiate your application's WebSocket handler class
-            // This class (e.g., MyApp\Chat) must implement Ratchet\MessageComponentInterface
-            new Chat()
+            $gameServer
         )
     ),
-    // *** Port Change: Listen on port 9001 ***
-    // This should match the port specified in the Nginx proxy_pass directive (e.g., http://websocket:9001)
     9001,
     // Bind to '0.0.0.0' to accept connections on all available network interfaces within the container
     '0.0.0.0'
 );
 
-// Start the server event loop
 $server->run();
 
-echo "WebSocket server stopped.\n"; // This line might not be reached if run() blocks indefinitely
+// This line will never be reached as $server->run() creates an infinite loop
+echo "WebSocket server stopped.\n";
