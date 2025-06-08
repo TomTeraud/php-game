@@ -7,7 +7,8 @@ COPY --from=mlocati/php-extension-installer /usr/bin/install-php-extensions /usr
 RUN set -eux; \
     install-php-extensions \
         pdo \
-        pdo_mysql
+        pdo_mysql\
+        pcntl
 
 # Allow super user - set this if you use Composer as a super user at all times like in docker containers
 ENV COMPOSER_ALLOW_SUPERUSER=1
@@ -34,7 +35,7 @@ ENV XDEBUG_MODE=off
 
 # Install Xdebug
 RUN set -eux; \
-    install-php-extensions xdebug; 
+    install-php-extensions xdebug pcntl; 
 
 # Copy xdebug.ini after xdebug is installed
 COPY ./php/conf.d/xdebug.ini /usr/local/etc/php/conf.d/xdebug.ini

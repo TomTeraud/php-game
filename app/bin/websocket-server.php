@@ -3,6 +3,9 @@
 use Ratchet\Server\IoServer;
 use Ratchet\Http\HttpServer;
 use Ratchet\WebSocket\WsServer;
+use React\EventLoop\Loop;
+use React\Socket\SocketServer;
+
 use App\WebSocket\GameServer;
 use App\Database\DatabaseConnection;
 use App\Service\AuthService;
@@ -12,7 +15,7 @@ use Dotenv\Dotenv;
 require dirname(__DIR__) . '/vendor/autoload.php';
 
 try {
-    // The .env files are located at /var/www/html/ in the container
+    // Load environment variables from the container's root directory.
     $dotenv = Dotenv::createImmutable('/var/www/html/');
     $dotenv->load();
 } catch (\Dotenv\Exception\InvalidPathException $e) {
@@ -21,27 +24,36 @@ try {
 
 echo "Starting WebSocket server on port 9001...\n";
 
-// Instantiate your services/repositories
 $pdoConnection = DatabaseConnection::getInstance()->getPdo();
 $chatMessageRepository = new ChatMessageRepository($pdoConnection);
 $authService = new AuthService();
 
-// Pass the services to the GameServer constructor
 $gameServer = new GameServer($authService, $chatMessageRepository);
 
-$server = IoServer::factory(
-    // Wrap your core application logic (GameServer class) within the WebSocket and HTTP server protocols
+// Set up the ReactPHP Event Loop and Socket Server manually for graceful shutdown.
+$loop = Loop::get();
+$webSock = new SocketServer('0.0.0.0:9001', [], $loop);
+
+$server = new IoServer(
     new HttpServer(
         new WsServer(
             $gameServer
         )
     ),
-    9001,
-    // Bind to '0.0.0.0' to accept connections on all available network interfaces within the container
-    '0.0.0.0'
+    $webSock,
+    $loop
 );
 
-$server->run();
+// Add a signal handler for SIGTERM to ensure a clean shutdown.
+$loop->addSignal(SIGTERM, function ($signal) use ($loop, $webSock) {
+    echo "Caught SIGTERM ($signal). Initiating graceful shutdown...\n";
+    if ($webSock instanceof SocketServer) {
+        $webSock->close(); // Stop accepting new connections
+    }
+    $loop->stop(); // Stop the event loop
+    echo "Event loop stopped. WebSocket server shutting down.\n";
+});
 
-// This line will never be reached as $server->run() creates an infinite loop
+$loop->run();
+
 echo "WebSocket server stopped.\n";
