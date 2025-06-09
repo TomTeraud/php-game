@@ -1,0 +1,28 @@
+#!/bin/sh
+set -e
+
+# This script is a simplified version of the official php-fpm entrypoint.
+# Its purpose is to ensure that a php.ini file is correctly set up
+# before php-fpm or other PHP commands are executed.
+
+# Check if a php.ini file already exists.
+# If not, copy either the production or development ini file into place.
+if [ ! -e "/usr/local/etc/php/php.ini" ]; then
+    echo "No php.ini found, copying php.ini-production..."
+    # Always prefer production settings in a Docker environment unless explicitly specified.
+    cp "/usr/local/etc/php/php.ini-production" "/usr/local/etc/php/php.ini"
+fi
+
+# Ensure that the configuration directory for additional .ini files exists.
+mkdir -p /usr/local/etc/php/conf.d
+
+# If the first argument starts with a hyphen, assume it's a php-fpm argument
+# and prepend 'php-fpm' to the command. This is typical for PHP-FPM containers.
+if [ "${1#-}" != "$1" ]; then
+    set -- php-fpm "$@"
+fi
+
+# Execute the final command. This passes control to the specified command (e.g., php-fpm).
+# The 'exec' command replaces the current shell process with the new process,
+# ensuring signals are properly handled by the main application (and by tini if init: true is used).
+exec "$@"
