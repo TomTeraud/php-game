@@ -1,7 +1,5 @@
 <?php
 
-require_once __DIR__ . '/../vendor/autoload.php';
-
 use App\Database\DatabaseConnection;
 use App\Auth\TokenGenerator;
 
@@ -29,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'samesite' => 'Lax' // Use 'Strict' or 'Lax' based on frontend
         ]);
 
-        header('Location: /index.php');
+        header('Location: /');
 
         exit;
     } else {

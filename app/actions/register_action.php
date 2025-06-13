@@ -1,7 +1,5 @@
 <?php
 
-require_once __DIR__ . '/../vendor/autoload.php';
-
 use App\Database\DatabaseConnection;
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -33,7 +31,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if ($emailExists || $usernameExists) {
             echo <<<HTML
             <h2>Email or username already in use!</h2>
-            <form action="register.php">
+            <form action="/register">
                 <button type="submit">Back to Register</button>
             </form>
             HTML;
@@ -46,7 +44,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         echo <<<HTML
         <h2>Registration successful!</h2>
-        <form action="/../index.php">
+        <form action="/">
             <button type="submit">Go to Home</button>
         </form>
         HTML;
