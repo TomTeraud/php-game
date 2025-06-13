@@ -22,11 +22,11 @@ class DatabaseConnection
 
     private function __construct()
     {
-        $host = $_ENV['MYSQL_HOST'] ?? 'localhost';
-        $db   = $_ENV['MYSQL_DATABASE'] ?? '';
-        $user = $_ENV['MYSQL_USER'] ?? '';
-        $pass = $_ENV['MYSQL_PASSWORD'] ?? '';
-        $port = $_ENV['MYSQL_PORT'] ?? '3306';
+        $host = getenv('MYSQL_HOST') ?? 'localhost';
+        $db   = getenv('MYSQL_DATABASE') ?? '';
+        $user = getenv('MYSQL_USER') ?? '';
+        $pass = getenv('MYSQL_PASSWORD') ?? '';
+        $port = getenv('MYSQL_PORT') ?? '3306';
 
         if (!$db || !$user) {
             throw new PDOException("Missing DB name or user in environment variables.");

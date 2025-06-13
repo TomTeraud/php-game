@@ -1,5 +1,5 @@
 <?php
-require_once __DIR__ . '/../bootstrap/auth.php';
+require_once __DIR__ . '/../bootstrap/app.php';
 
 if (!$user) {
     header("Location: index.php");

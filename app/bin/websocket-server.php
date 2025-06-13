@@ -1,26 +1,15 @@
 <?php
 
+require_once dirname(__DIR__) . '/bootstrap/app.php';
 use Ratchet\Server\IoServer;
 use Ratchet\Http\HttpServer;
 use Ratchet\WebSocket\WsServer;
 use React\EventLoop\Loop;
 use React\Socket\SocketServer;
-
 use App\WebSocket\GameServer;
 use App\Database\DatabaseConnection;
 use App\Service\AuthService;
 use App\Repository\ChatMessageRepository;
-use Dotenv\Dotenv;
-
-require dirname(__DIR__) . '/vendor/autoload.php';
-
-try {
-    // Load environment variables from the container's root directory (/var/www/html/).
-    $dotenv = Dotenv::createImmutable('/var/www/html/');
-    $dotenv->load();
-} catch (\Dotenv\Exception\InvalidPathException $e) {
-    error_log("Warning: .env.local file not found or could not be loaded: " . $e->getMessage());
-}
 
 echo "Starting WebSocket server on port 9001...\n";
 

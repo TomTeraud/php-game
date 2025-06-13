@@ -1,4 +1,4 @@
-<?php require_once __DIR__ . '/../../bootstrap/auth.php'; ?>
+<?php require_once __DIR__ . '/../../bootstrap/app.php'; ?>
 
 <nav>
     <?php if ($user): ?>
