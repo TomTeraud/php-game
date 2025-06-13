@@ -8,7 +8,7 @@ use Dotenv\Dotenv;
 
 try {
     // Load environment variables from the project root (mounted as /var/www/html/ in Docker)
-    $dotenv = Dotenv::createImmutable(dirname(__DIR__));
+    $dotenv = Dotenv::createImmutable('/app-config/');
     $dotenv->load();
 } catch (\Dotenv\Exception\InvalidPathException $e) {
     // Log the warning. For critical apps, you might want to exit(1) here.

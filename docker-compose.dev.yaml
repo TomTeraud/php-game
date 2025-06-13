@@ -26,8 +26,8 @@ services:
     volumes:
       - ./app:/var/www/html
       - ./app/vendor:/var/www/html/vendor # This maps your local ./app/vendor
-      - ./.env:/var/www/html/.env
-      - ./.env.local:/var/www/html/.env.local
+      - ./.env:/app-config/.env
+      - ./.env.local:/app-config/.env.local      
     working_dir: /var/www/html # Sets the default working directory for commands
     environment:
       # Environment variables for database and Redis connection
@@ -64,8 +64,8 @@ services:
     volumes:
       - ./app:/var/www/html
       - ./app/vendor:/var/www/html/vendor
-      - ./.env:/var/www/html/.env
-      - ./.env.local:/var/www/html/.env.local
+      - ./.env:/app-config/.env
+      - ./.env.local:/app-config/.env.local
     working_dir: /var/www/html
     init: true # This tells Docker to use tini (or its built-in init) as PID 1
     command: ["php", "bin/websocket-server.php"] # Command to start the WebSocket server

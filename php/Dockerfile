@@ -10,6 +10,9 @@ RUN set -eux; \
         pdo_mysql \
         pcntl
 
+# This ensures the directory exists in the image before bind mounts are applied.
+RUN mkdir -p /app-config
+
 # Allow super user - set this if you use Composer as a super user at all times like in docker containers
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
