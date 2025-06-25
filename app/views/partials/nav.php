@@ -4,7 +4,7 @@ $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 <nav class="bg-gray-800 p-4 shadow-md flex justify-between items-center rounded-b-xl px-6 sm:px-8 lg:px-10">
     <?php if ($user): ?>
-        <span class="text-white text-lg font-medium mr-4">Welcome, <span class="text-indigo-400"><?= htmlspecialchars($user->username) ?></span>!</span>
+        <span class="text-white text-lg font-medium mr-4"><span class="text-indigo-400"><?= htmlspecialchars($user->username) ?></span></span>
 
         <div class="flex items-center space-x-4">
             <?php

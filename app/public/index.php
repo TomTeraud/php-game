@@ -2,38 +2,53 @@
 
 require_once dirname(__DIR__) . '/bootstrap/app.php';
 
-// Get the requested URI (e.g., '/', '/login', '/register', '/chatroom.php')
 $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
-// Define your routes and dispatch logic
 switch ($requestUri) {
     case '/':
         $title = "Welcome";
         include __DIR__ . '/../views/partials/header.php';
         include __DIR__ . '/../views/partials/nav.php';
-        ?>
-        <main class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8">
-            <div class="bg-white p-6 sm:p-8 lg:p-10 rounded-xl shadow-2xl max-w-md w-full text-center space-y-6 transform transition-all duration-300 hover:scale-105">
-                <h2 class="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight leading-tight">
-                    Welcome to the Chat App
+?>
+        <main class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 sm:p-6 lg:p-8 space-y-8">
+            <?php if ($user): ?>
+                <h2 class="text-4xl font-extrabold text-gray-900 tracking-tight leading-tight text-center">
+                    Welcome, <span class="text-indigo-700"><?= htmlspecialchars($user->username) ?></span>!
                 </h2>
-                <?php if ($user): ?>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-6 w-full max-w-2xl">
+                    <div class="bg-white p-6 sm:p-8 lg:p-10 rounded-xl shadow-2xl max-w-md w-full text-center space-y-6 transform transition-all duration-300 hover:scale-105">
+                        <h3 class="text-3xl font-extrabold text-gray-900 mb-4 tracking-tight leading-tight">
+                            Chatroom
+                        </h3>
+                        <a href="/chatroom" class="block w-full">
+                            <button type="button" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50 text-xl">
+                                Enter Chat
+                            </button>
+                        </a>
+                    </div>
+                    <div class="bg-white p-6 sm:p-8 lg:p-10 rounded-xl shadow-2xl max-w-md w-full text-center space-y-6 transform transition-all duration-300 hover:scale-105">
+                        <h3 class="text-3xl font-extrabold text-gray-900 mb-4 tracking-tight leading-tight">
+                            Game
+                        </h3>
+                        <a href="/game" class="block w-full">
+                            <button type="button" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50 text-xl">
+                                Play Game
+                            </button>
+                        </a>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="bg-white p-6 sm:p-8 lg:p-10 rounded-xl shadow-2xl max-w-md w-full text-center space-y-6 transform transition-all duration-300 hover:scale-105">
+                    <h2 class="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight leading-tight">
+                        Welcome to the App
+                    </h2>
                     <p class="text-lg text-gray-700 leading-relaxed">
-                        You are logged in as <span class="font-semibold text-indigo-700"><?= htmlspecialchars($user->username) ?></span>.
+                        Please <a href="/login" class="font-semibold text-indigo-600 hover:text-indigo-800 underline transition-colors duration-200">log in</a> or <a href="/register" class="font-semibold text-green-600 hover:text-green-800 underline transition-colors duration-200">register</a> to continue.
                     </p>
-                    <a href="/chatroom" class="block w-full">
-                        <button type="button" class="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-50 text-xl">
-                            Enter Chat
-                        </button>
-                    </a>
-                <?php else: ?>
-                    <p class="text-lg text-gray-700 leading-relaxed">
-                        Please <a href="/login" class="font-semibold text-indigo-600 hover:text-indigo-800 underline transition-colors duration-200">log in</a> to enter the chat.
-                    </p>
-                <?php endif; ?>
-            </div>
+                </div>
+            <?php endif; ?>
         </main>
-        <?php
+<?php
         include __DIR__ . '/../views/partials/footer.php';
         break;
 
