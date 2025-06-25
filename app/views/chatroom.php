@@ -6,7 +6,7 @@ include __DIR__ . '/partials/nav.php';
 <main class="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 p-4 sm:p-6 lg:p-8">
     <div class="bg-white p-6 sm:p-8 lg:p-10 rounded-xl shadow-2xl max-w-xl w-full space-y-6 transform transition-all duration-300 hover:scale-105">
         <h2 class="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight leading-tight text-center">
-            WebSocket Chatroom
+            Chatroom
         </h2>
 
         <!-- Status display -->
@@ -29,13 +29,6 @@ include __DIR__ . '/partials/nav.php';
             </button>
         </div>
 
-        <!-- Leave Chat button -->
-        <form action="/" method="get" class="block w-full mt-6 text-center"> <!-- Changed action to '/' -->
-            <button type="submit"
-                    class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 text-base">
-                Leave Chat
-            </button>
-        </form>
     </div>
 </main>
 
