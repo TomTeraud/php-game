@@ -83,7 +83,16 @@ switch ($requestUri) {
         include __DIR__ . '/../views/chatroom.php';
         break;
 
-    case '/logout': // Handle logout action
+    case '/game':
+        if (!$user) { // $user should be set by bootstrap/auth.php
+            header("Location: /login");
+            exit;
+        }
+        $title = "Game";
+        include __DIR__ . '/../views/game.php';
+        break;
+
+        case '/logout': // Handle logout action
         // This is where your logout logic (from logout.php) would go.
         // For simple apps, including the script here is fine.
         include __DIR__ . '/../actions/logout.php';

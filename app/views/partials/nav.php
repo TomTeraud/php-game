@@ -8,12 +8,19 @@ $requestUri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
         <div class="flex items-center space-x-4">
             <?php
-                if ($requestUri === '/chatroom'):
-
+            if ($requestUri === '/chatroom'):
             ?>
                 <form action="/" method="get" class="inline-block">
                     <button type="submit" class="bg-indigo-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 text-base">
                         Leave Chat
+                    </button>
+                </form>
+            <?php
+            elseif ($requestUri === '/game'):
+            ?>
+                <form action="/" method="get" class="inline-block">
+                    <button type="submit" class="bg-indigo-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-opacity-75 text-base">
+                        Quit game
                     </button>
                 </form>
             <?php else: ?>
