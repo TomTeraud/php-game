@@ -7,21 +7,41 @@ use Ratchet\WebSocket\WsServer;
 use React\EventLoop\Loop;
 use React\Socket\SocketServer;
 use App\WebSocket\GameServer;
+use App\Game\GameEngine;
 use App\Database\DatabaseConnection;
 use App\Service\AuthService;
 use App\Repository\ChatMessageRepository;
 
 echo "Starting WebSocket server on port 9001...\n";
 
+$loop = Loop::get(); // Get the global ReactPHP event loop
+
 $pdoConnection = DatabaseConnection::getInstance()->getPdo();
 $chatMessageRepository = new ChatMessageRepository($pdoConnection);
 $authService = new AuthService();
 
+// Instantiate GameEngine BEFORE GameServer
+// Pass the loop and a callable (the GameServer's broadcastGameState method)
+$gameEngine = new GameEngine($loop, function(array $ballState) use ($chatMessageRepository, $authService, $loop, &$gameServer) {
+    // This callback runs in GameEngine. It needs to call GameServer's method.
+    // The $gameServer variable is passed by reference (&) to ensure the callback has the *actual* GameServer instance
+    // once it's created below. This is a common pattern for circular dependencies or late binding.
+    // Ensure $gameServer is defined before this callback is executed.
+    if (isset($gameServer)) {
+        $gameServer->broadcastGameState($ballState);
+    } else {
+        error_log("Attempted to broadcast game state before GameServer was fully initialized.");
+    }
+});
+
+
 // Create your main game server application instance.
-$gameServer = new GameServer($authService, $chatMessageRepository);
+// CRITICAL LINE: Ensure all 4 arguments are passed here.
+// App\WebSocket\GameServer::__construct(AuthService $authService, ChatMessageRepository $chatMessageRepository, LoopInterface $loop, GameEngine $gameEngine)
+$gameServer = new GameServer($authService, $chatMessageRepository, $loop, $gameEngine);
+
 
 // Set up the ReactPHP Event Loop and Socket Server manually for graceful shutdown.
-$loop = Loop::get();
 $webSock = new SocketServer('0.0.0.0:9001', [], $loop);
 
 // Wrap your GameServer with Ratchet's HTTP and WebSocket layers.
@@ -47,27 +67,22 @@ $gracefulShutdown = function (int $signal, \React\EventLoop\LoopInterface $loop,
     error_log("--- Caught signal ($signal). Initiating graceful shutdown... ---");
 
     if ($webSock instanceof SocketServer) {
-        $webSock->close(); // Stop accepting new connections and close existing ones.
+        $webSock->close();
         error_log("--- WebSocket server closed listening socket. ---");
     }
 
-    $loop->stop(); // Stop the event loop, causing the script to exit gracefully.
+    $loop->stop();
     error_log("--- Event loop stopped. WebSocket server shutting down. ---");
 };
 
-// Add signal handler for SIGTERM (standard Docker graceful shutdown signal).
 $loop->addSignal(SIGTERM, function ($signal) use ($gracefulShutdown, $loop, $webSock) {
     $gracefulShutdown($signal, $loop, $webSock);
 });
 
-// Add signal handler for SIGQUIT (observed as the signal currently sent by your Docker Compose setup).
 $loop->addSignal(SIGQUIT, function ($signal) use ($gracefulShutdown, $loop, $webSock) {
     $gracefulShutdown($signal, $loop, $webSock);
 });
 
-// Run the event loop; this starts the WebSocket server and keeps it alive
-// until $loop->stop() is explicitly called by a signal handler.
 $loop->run();
 
-// This line will only be reached once the $loop->stop() is called and the server has shut down.
 echo "WebSocket server stopped.\n";

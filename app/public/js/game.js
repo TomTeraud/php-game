@@ -1,39 +1,127 @@
-// Ensure MyGame object is globally accessible (or within a specific scope)
-// for the HTML buttons to call its methods.
-; // Leading semicolon for safety against ASI
+; // Leading semicolon for safety against Automatic Semicolon Insertion (ASI)
 
 const MyGame = {}; // Initialize MyGame as an object to hold game state and functions
 
 (() => {
-  // --- Game State Variables ---
-  let animationFrameId = null;    // Stores the requestAnimationFrame ID for stopping the loop
-  let lastFrameTimeMs = 0;      // Last time the game logic was actually updated (in milliseconds)
-
-  const desiredFPS = 60;          // Target frame rate for game logic and rendering
-  const frameIntervalMs = 1000 / desiredFPS; // Milliseconds per frame
-
-  // Canvas and Context
+  // --- Game State Variables (Client-side representation) ---
   let canvas = null;
   let ctx = null;
 
-  // Game Object (e.g., a simple bouncing ball)
-  const ball = {
-    x: 100,
-    y: 100,
-    radius: 20,
-    dx: 50, // pixels per second
-    dy: 1600, // pixels per second
-    color: '#3498db' // Blue color
+  // The ball state will now be updated by messages from the server.
+  // Initialize with some sensible defaults.
+  let ball = {
+    x: 0,
+    y: 0,
+    radius: 20, // This will be provided by the server, but a default prevents errors
+    color: '#3498db' // Default color, will be updated by server
   };
+
+  // WebSocket Connection details
+  let ws = null;
+  const websocketUrl = 'ws://localhost/ws/';
 
   // --- HTML Element References ---
   let startGameButton = null;
   let stopGameButton = null;
 
-  // --- Game Loop Functions ---
+  // --- WebSocket Functions ---
 
   /**
-   * Initializes game components and sets up event listeners.
+   * Establishes the WebSocket connection to the game server.
+   */
+  function connectWebSocket() {
+    // Prevent multiple connections if already open or connecting
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      console.log("WebSocket already open or connecting.");
+      return;
+    }
+
+    ws = new WebSocket(websocketUrl);
+
+    // Event handler for successful WebSocket connection
+    ws.onopen = (event) => {
+      console.log("WebSocket connected to game server.");
+      // You might want to enable/disable UI elements here
+    };
+
+    // Event handler for messages received from the WebSocket server
+    ws.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      console.log("Received message from server:", message); // Uncomment for debugging
+
+      // Check the message type to differentiate between different server updates
+      if (message.type === 'game_state_update') {
+        // Update client-side ball state with authoritative data from the server
+        ball.x = message.ball.x;
+        ball.y = message.ball.y;
+        ball.radius = message.ball.radius;
+        ball.color = message.ball.color;
+
+        render(); // Re-render the canvas with the new server-provided state
+      } else if (message.type === 'game_status') {
+        // Example: Server sending a text status update
+        console.log("Game status from server:", message.message);
+        // You could update a UI element (e.g., a status div) with this message
+      }
+      // Add more message types as your game develops (e.g., player joined, score update)
+    };
+
+    // Event handler for WebSocket connection closure
+    ws.onclose = (event) => {
+      console.log("WebSocket disconnected from game server:", event);
+      MyGame.stopGame(); // Ensure client-side buttons reflect the stopped state
+      // Implement re-connection logic here if your app needs it
+    };
+
+    // Event handler for WebSocket errors
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+      MyGame.stopGame(); // Ensure client-side buttons reflect the stopped state
+      // Display an error message to the user if needed
+    };
+  }
+
+  /**
+   * Sends a message (JSON object) to the WebSocket server.
+   * @param {object} message The message object to send.
+   */
+  function sendWebSocketMessage(message) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(message));
+    } else {
+      console.warn("WebSocket not open. Cannot send message:", message);
+      // Optionally display a user-friendly message about connection issue
+    }
+  }
+
+  // --- Client-Side Rendering Function ---
+
+  function render() {
+    if (!ctx || !canvas) { // Ensure canvas and context are available
+      console.warn("Canvas context not available for rendering.");
+      return;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the entire canvas
+
+    // Draw the ball based on the state received from the server
+    ctx.beginPath();
+    // Ensure ball.x and ball.y are within canvas bounds for drawing,
+    // though server should primarily manage this.
+    const drawX = Math.max(ball.radius, Math.min(ball.x, canvas.width - ball.radius));
+    const drawY = Math.max(ball.radius, Math.min(ball.y, canvas.height - ball.radius));
+
+    ctx.arc(drawX, drawY, ball.radius, 0, Math.PI * 2);
+    ctx.fillStyle = ball.color;
+    ctx.fill();
+    ctx.closePath();
+  }
+
+  // --- Initialization and Event Handling ---
+
+  /**
+   * Initializes game components, gets element references, and sets up event listeners.
+   * Called when the page's DOM is fully loaded.
    */
   function initializeGame() {
     canvas = document.getElementById('gameCanvas');
@@ -47,129 +135,67 @@ const MyGame = {}; // Initialize MyGame as an object to hold game state and func
       return;
     }
 
-    // Get button references
+    // Get references to the Start and Stop buttons
     startGameButton = document.getElementById('startGameButton');
     stopGameButton = document.getElementById('stopGameButton');
 
-    // Add event listeners to buttons
+    // Add click event listeners to the buttons
     if (startGameButton) {
       startGameButton.addEventListener('click', MyGame.startGame);
-      // Enable start button and disable stop button initially
-      startGameButton.disabled = false;
+      startGameButton.disabled = false; // Start button is enabled initially
     }
     if (stopGameButton) {
       stopGameButton.addEventListener('click', MyGame.stopGame);
-      stopGameButton.disabled = true; // Initially disabled
+      stopGameButton.disabled = true; // Stop button is disabled initially
     }
 
-    console.log("Game initialized. Ready to start.");
-    // Initial render to show the ball before starting
-    render();
+    console.log("Game initialized. Attempting WebSocket connection...");
+    connectWebSocket(); // Establish WebSocket connection when game initializes
+    render(); // Initial render to show the ball at its default position
   }
 
-  /**
-   * Updates game logic based on the time elapsed since the last frame.
-   * @param {number} deltaTime Time in seconds since the last update.
-   */
-  function update(deltaTime) {
-    // Move the ball
-    ball.x += ball.dx * deltaTime;
-    ball.y += ball.dy * deltaTime;
-
-    // Bounce off walls (x-axis)
-    if (ball.x + ball.radius > canvas.width || ball.x - ball.radius < 0) {
-      ball.dx *= -1; // Reverse horizontal direction
-      // Ensure ball stays within bounds if it overshoots
-      if (ball.x + ball.radius > canvas.width) ball.x = canvas.width - ball.radius;
-      if (ball.x - ball.radius < 0) ball.x = ball.radius;
-    }
-
-    // Bounce off walls (y-axis)
-    if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
-      ball.dy *= -1; // Reverse vertical direction
-      // Ensure ball stays within bounds if it overshoots
-      if (ball.y + ball.radius > canvas.height) ball.y = canvas.height - ball.radius;
-      if (ball.y - ball.radius < 0) ball.y = ball.radius;
-    }
-  }
+  // --- Public Methods (attached to MyGame object) ---
 
   /**
-   * Renders the game state to the canvas.
-   */
-  function render() {
-    // Clear the canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Draw the ball
-    ctx.beginPath();
-    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
-    ctx.fillStyle = ball.color;
-    ctx.fill();
-    ctx.closePath();
-  }
-
-  /**
-   * The main game loop function, called by requestAnimationFrame.
-   * It handles frame rate gating and calls update/render.
-   * @param {DOMHighResTimeStamp} currentTimeMs The timestamp provided by requestAnimationFrame.
-   */
-  function gameLoop(currentTimeMs) {
-    // Schedule the next frame first. This ensures the loop continues.
-    animationFrameId = window.requestAnimationFrame(gameLoop);
-
-    // Calculate time elapsed since last *actual* game logic update
-    const elapsedMs = currentTimeMs - lastFrameTimeMs;
-
-    // Only update and render if enough time has passed for the desired FPS
-    if (elapsedMs >= frameIntervalMs) {
-      // Adjust lastFrameTimeMs to prevent cumulative drift
-      lastFrameTimeMs = currentTimeMs - (elapsedMs % frameIntervalMs);
-
-      // Convert elapsed time to seconds for time-based updates
-      const deltaTime = elapsedMs / 1000;
-
-      update(deltaTime);
-      render();
-    }
-  }
-
-  // --- Public Methods (attached to MyGame) ---
-
-  /**
-   * Starts the game loop.
+   * Sends a request to the server to start the game simulation.
+   * Updates button states.
    */
   MyGame.startGame = () => {
-    if (!animationFrameId) { // Prevent multiple starts
-      // Disable start button, enable stop button
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      sendWebSocketMessage({ type: 'game_start_request' }); // Send the start command
+      console.log("Sent game_start_request to server.");
+      // Update button states immediately for better UX
       if (startGameButton) startGameButton.disabled = true;
       if (stopGameButton) stopGameButton.disabled = false;
-
-      // Initialize lastFrameTimeMs on the first call to gameLoop
-      animationFrameId = window.requestAnimationFrame((initialTime) => {
-        lastFrameTimeMs = initialTime;
-        gameLoop(initialTime); // Start the loop with the initial timestamp
-      });
-      console.log("Game loop started.");
+    } else {
+      console.warn("WebSocket not open. Cannot send start game request. Attempting to reconnect.");
+      connectWebSocket(); // Try to reconnect if not open
     }
   };
 
   /**
-   * Stops the game loop.
+   * Sends a request to the server to stop the game simulation.
+   * Updates button states.
    */
   MyGame.stopGame = () => {
-    if (animationFrameId) {
-      window.cancelAnimationFrame(animationFrameId);
-      animationFrameId = null; // Clear the ID
-      console.log("Game loop stopped.");
-
-      // Enable start button, disable stop button
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      sendWebSocketMessage({ type: 'game_stop_request' }); // Send the stop command
+      console.log("Sent game_stop_request to server.");
+      // Update button states immediately for better UX
+      if (startGameButton) startGameButton.disabled = false;
+      if (stopGameButton) stopGameButton.disabled = true;
+      // Also, clear canvas or reset state visually if server doesn't send a final reset
+      render(); // Render once more to clear or show default state
+    } else {
+      console.warn("WebSocket not open. Cannot send stop game request.");
+      // If WS not open, just update button states
       if (startGameButton) startGameButton.disabled = false;
       if (stopGameButton) stopGameButton.disabled = true;
     }
   };
 
-  // --- Initial Setup ---
-  // Call initializeGame when the DOM is fully loaded
+  // --- Initial Setup Trigger ---
+  // Call initializeGame when the entire DOM is loaded (including external scripts like this one).
   window.addEventListener('load', initializeGame);
 
 })();
