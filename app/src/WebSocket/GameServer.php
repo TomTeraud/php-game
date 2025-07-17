@@ -12,7 +12,8 @@ use App\WebSocket\Handlers\MessageHandlerInterface;
 use App\WebSocket\Handlers\ChatMessageHandler;
 use App\WebSocket\Handlers\GameStartHandler;
 use App\WebSocket\Handlers\GameStopHandler;
-use App\Game\GameEngine; // NEW: Import GameEngine
+use App\WebSocket\Handlers\PlayerInputHandler; // Ensure this is the corrected one
+use App\Game\GameEngine; // This should be the GameEngine for hero movement
 
 
 class GameServer implements MessageComponentInterface {
@@ -20,35 +21,27 @@ class GameServer implements MessageComponentInterface {
     protected LoopInterface $loop;
     protected AuthService $authService;
     protected ChatMessageRepository $chatMessageRepository;
-    protected GameEngine $gameEngine; // NEW: Instance of our game logic engine
+    protected GameEngine $gameEngine;
 
     // --- Message Handlers ---
     /** @var array<string, MessageHandlerInterface> */
     private array $messageHandlers = [];
 
-    /**
-     * Constructor: Injects dependencies needed for both chat and game features.
-     * The order of arguments must match how they are passed in websocket-server.php.
-     * NEW: $gameEngine is now a dependency.
-     */
     public function __construct(AuthService $authService, ChatMessageRepository $chatMessageRepository, LoopInterface $loop, GameEngine $gameEngine) {
         $this->clients = new SplObjectStorage;
         $this->authService = $authService;
         $this->chatMessageRepository = $chatMessageRepository;
         $this->loop = $loop;
-        $this->gameEngine = $gameEngine; // NEW: Assign GameEngine instance
+        $this->gameEngine = $gameEngine;
 
-        // No need to initialize game state here; GameEngine does it
         $this->registerMessageHandlers();
     }
 
-    /**
-     * Registers all message handlers for different message types.
-     */
     private function registerMessageHandlers(): void {
         $this->messageHandlers['chat_message'] = new ChatMessageHandler();
         $this->messageHandlers['game_start_request'] = new GameStartHandler();
         $this->messageHandlers['game_stop_request'] = new GameStopHandler();
+        $this->messageHandlers['player_input'] = new PlayerInputHandler();
     }
 
     // --- Getters for Handlers and GameEngine to access GameServer's properties/methods ---
@@ -68,26 +61,36 @@ class GameServer implements MessageComponentInterface {
         return $this->chatMessageRepository;
     }
 
-    public function getGameEngine(): GameEngine { // NEW: Getter for GameEngine
+    public function getGameEngine(): GameEngine {
         return $this->gameEngine;
     }
 
-    // --- Game Logic Methods (REMOVED from here, now in GameEngine) ---
-    // Instead, this class provides a method that GameEngine can call to broadcast state.
     /**
-     * Broadcasts the current game ball state to all connected clients.
+     * Broadcasts the current full game state (hero position, world dimensions) to all connected clients.
      * This method is called by GameEngine.
-     * @param array $ballState The current state of the ball.
+     * @param array $gameState The current full game state.
      */
-    public function broadcastGameState(array $ballState): void {
+    public function broadcastGameState(array $gameState): void {
+        // Ensure the data structure matches what the client's game.js expects for hero movement
         $message = json_encode([
             'type' => 'game_state_update',
-            'ball' => [
-                'x' => round($ballState['x'], 2),
-                'y' => round($ballState['y'], 2),
-                'radius' => $ballState['radius'],
-                'color' => $ballState['color']
-            ]
+            'hero' => [
+                'x' => round($gameState['hero']['x'], 2),
+                'y' => round($gameState['hero']['y'], 2),
+                'size' => $gameState['hero']['size'],
+                'color' => $gameState['hero']['color']
+            ],
+            'worldWidth' => $gameState['worldWidth'],
+            'worldHeight' => $gameState['worldHeight'],
+            'canvasWidth' => $gameState['canvasWidth'],
+            'canvasHeight' => $gameState['canvasHeight'],
+            'gridSize' => $gameState['gridSize'],
+            'serverFps' => $gameState['serverFps'],
+            'effectiveTileMoveDurationMs' => $gameState['effectiveTileMoveDurationMs'],
+            'autoMoveActive' => $gameState['autoMoveActive'],
+            'autoMoveDirection' => $gameState['autoMoveDirection'],
+            'lastProcessedInputSequence' => $gameState['lastProcessedInputSequence'],
+            'allowedNextPositionsMap' => $gameState['allowedNextPositionsMap']
         ]);
         foreach ($this->clients as $client) {
             $client->send($message);
@@ -137,12 +140,9 @@ class GameServer implements MessageComponentInterface {
         $this->broadcastChatActivity("User {$conn->username} connected", $conn);
 
         // On new connection, send initial game state from GameEngine
-        $this->broadcastGameState($this->gameEngine->getBallState());
+        $this->broadcastGameState($this->gameEngine->getGameState());
     }
 
-    /**
-     * Refactored onMessage method to use message handlers.
-     */
     public function onMessage(ConnectionInterface $from, $msg): void {
         $data = json_decode($msg, true);
 
@@ -160,8 +160,7 @@ class GameServer implements MessageComponentInterface {
             return;
         }
 
-        // Delegate handling to the specific MessageHandler
-        $this->messageHandlers[$messageType]->handle($from, $data, $this); // Pass $this (GameServer instance)
+        $this->messageHandlers[$messageType]->handle($from, $data, $this);
     }
 
     public function onClose(ConnectionInterface $conn): void {
@@ -171,8 +170,8 @@ class GameServer implements MessageComponentInterface {
         $username = $conn->username ?? 'Guest';
         $this->broadcastChatActivity("User {$username} disconnected", $conn);
 
-        if ($this->clients->count() === 0 && $this->gameEngine->getGameLoopTimer() !== null) { // Check GameEngine's timer
-            // $this->gameEngine->stopServerGameLoop(); // Uncomment if game should stop when all clients disconnect
+        if ($this->clients->count() === 0 && $this->gameEngine->getGameLoopTimer() !== null) {
+            // $this->gameEngine->stopServerGameLoop();
         }
     }
 
@@ -180,8 +179,6 @@ class GameServer implements MessageComponentInterface {
         error_log("An error has occurred on connection {$conn->resourceId}: {$e->getMessage()}");
         $conn->close();
     }
-
-    // --- Chat Specific Broadcast Methods (already present) ---
 
     public function broadcastChatMessage(string $username, string $messageText, ?ConnectionInterface $from = null): void {
         $broadcastData = [

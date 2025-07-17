@@ -1,13 +1,17 @@
 <?php
 
+// Only require the main application bootstrap.
+// This file (bootstrap/app.php) handles autoloading and environment variable loading.
 require_once dirname(__DIR__) . '/bootstrap/app.php';
+
 use Ratchet\Server\IoServer;
 use Ratchet\Http\HttpServer;
 use Ratchet\WebSocket\WsServer;
 use React\EventLoop\Loop;
 use React\Socket\SocketServer;
+
 use App\WebSocket\GameServer;
-use App\Game\GameEngine;
+use App\Game\GameEngine; // This will now correctly refer to the GameEngine for hero movement
 use App\Database\DatabaseConnection;
 use App\Service\AuthService;
 use App\Repository\ChatMessageRepository;
@@ -22,13 +26,14 @@ $authService = new AuthService();
 
 // Instantiate GameEngine BEFORE GameServer
 // Pass the loop and a callable (the GameServer's broadcastGameState method)
-$gameEngine = new GameEngine($loop, function(array $ballState) use ($chatMessageRepository, $authService, $loop, &$gameServer) {
+// IMPORTANT: The callback now expects $gameState (which contains 'hero' data), not $ballState.
+$gameEngine = new GameEngine($loop, function(array $gameState) use ($chatMessageRepository, $authService, $loop, &$gameServer) {
     // This callback runs in GameEngine. It needs to call GameServer's method.
     // The $gameServer variable is passed by reference (&) to ensure the callback has the *actual* GameServer instance
     // once it's created below. This is a common pattern for circular dependencies or late binding.
     // Ensure $gameServer is defined before this callback is executed.
     if (isset($gameServer)) {
-        $gameServer->broadcastGameState($ballState);
+        $gameServer->broadcastGameState($gameState); // Pass the full gameState array
     } else {
         error_log("Attempted to broadcast game state before GameServer was fully initialized.");
     }
