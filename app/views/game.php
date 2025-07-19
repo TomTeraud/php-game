@@ -7,11 +7,11 @@ include __DIR__ . '/partials/nav.php';
     <h2 class="text-4xl font-extrabold text-gray-900 mb-4 tracking-tight leading-tight text-center">
         Simple Game
     </h2>
+    <canvas id="gameCanvas" class="border border-gray-300 rounded-lg shadow-inner block mx-auto" width="600" height="400">
+        Your browser does not support the Canvas element.
+    </canvas>
 
     <div class="bg-white p-6 sm:p-8 lg:p-10 rounded-xl shadow-2xl max-w-xl w-full space-y-6 transform transition-all duration-300 hover:scale-105">
-        <canvas id="gameCanvas" class="border border-gray-300 rounded-lg shadow-inner block mx-auto" width="600" height="400">
-            Your browser does not support the Canvas element.
-        </canvas>
 
         <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-6">
             <button id="startGameButton"
@@ -26,6 +26,6 @@ include __DIR__ . '/partials/nav.php';
     </div>
 </main>
 
-<script src="/js/game.js"></script>
+<script type="module" src="/js/game/main.js"></script>
 
 <?php include __DIR__ . '/partials/footer.php'; ?>
