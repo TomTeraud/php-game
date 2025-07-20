@@ -29,6 +29,6 @@ include __DIR__ . '/partials/nav.php';
     </div>
 </main>
 
-<script src="/js/chatroom.js"></script>
+<script type="module" src="/js/chatroom/main.js"></script>
 
 <?php include __DIR__ . '/partials/footer.php'; ?>

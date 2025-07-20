@@ -20,7 +20,5 @@ const MyGame = (() => {
   };
 })();
 
-export default MyGame;
-
 // Initialize when DOM is loaded
 window.addEventListener('load', MyGame.initialize);

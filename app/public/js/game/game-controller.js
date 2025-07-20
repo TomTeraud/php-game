@@ -1,7 +1,7 @@
-import { WebSocketManager } from './websocket-manager.js';
+import { WebSocketManager } from '../shared/websocket-manager.js';
 import { GameRenderer } from './game-renderer.js';
 import { GameState } from './game-state.js';
-import { UIController } from './ui-controller.js';
+import { UIController } from '../shared/ui-controller.js';
 
 export class GameController {
   constructor(websocketUrl, canvasId) {
