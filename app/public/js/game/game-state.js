@@ -7,11 +7,23 @@ export class GameState {
       color: '#3498db'
     };
     this.isRunning = false;
+    this.isPaused = false;
+    this.connected = false;
+    this.fps = 0;
     this.listeners = [];
+
+    this.lastFrameTime = Date.now();
+    this.frameCount = 0;
   }
 
   updateBall(ballData) {
     this.ball = { ...this.ball, ...ballData };
+    this.updateFPS();
+    this.notifyListeners();
+  }
+
+  setConnected(connected) {
+    this.connected = connected;
     this.notifyListeners();
   }
 
@@ -26,5 +38,16 @@ export class GameState {
 
   notifyListeners() {
     this.listeners.forEach(listener => listener(this));
+  }
+
+  updateFPS() {
+    this.frameCount++;
+    const now = Date.now();
+    
+    if (now - this.lastFrameTime >= 1000) { // Update FPS every second
+      this.fps = this.frameCount;
+      this.frameCount = 0;
+      this.lastFrameTime = now;
+    }
   }
 }

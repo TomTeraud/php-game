@@ -15,7 +15,7 @@ class GameEngine
     private mixed $gameLoopTimer = null; // Stores the ReactPHP timer object for game updates
 
     // Game loop parameters
-    private float $serverFPS = 0.7; // Server-side update rate for game logic
+    private float $serverFPS = 5.5; // Server-side update rate for game logic
 
     // Fixed canvas dimensions (must match frontend for collision logic)
     private int $canvasWidth = 600;
