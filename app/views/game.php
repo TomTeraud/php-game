@@ -26,6 +26,10 @@ include __DIR__ . '/partials/nav.php';
                     class="bg-yellow-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-500 focus:ring-opacity-50 text-xl w-full sm:w-auto">
                 Pause..
             </button>
+            <button id="resumeGameButton"
+                    class="bg-yellow-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-500 focus:ring-opacity-50 text-xl w-full sm:w-auto">
+                Resume..
+            </button>
         </div>
         <button id="statsToggleButton"
                 class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-lg transform transition-all duration-300 ease-in-out hover:-translate-y-1 hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-red-500 focus:ring-opacity-50 text-xl w-full sm:w-auto">

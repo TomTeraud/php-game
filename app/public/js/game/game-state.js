@@ -30,6 +30,11 @@ export class GameState {
   setRunning(running) {
     this.isRunning = running;
     this.notifyListeners();
+  }  
+  
+  setPaused(paused) {
+    this.isPaused = paused;
+    this.notifyListeners();
   }
 
   addListener(listener) {

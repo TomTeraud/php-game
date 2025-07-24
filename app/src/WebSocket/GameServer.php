@@ -12,103 +12,291 @@ use App\WebSocket\Handlers\MessageHandlerInterface;
 use App\WebSocket\Handlers\ChatMessageHandler;
 use App\WebSocket\Handlers\GameStartHandler;
 use App\WebSocket\Handlers\GameStopHandler;
-use App\Game\GameEngine; // NEW: Import GameEngine
+use App\WebSocket\Handlers\GamePauseHandler;
+use App\WebSocket\Handlers\GameResumeHandler;
+use App\Game\GameEngine;
 
+/**
+ * GameServer - WebSocket server handling both chat and game functionality
+ * 
+ * This class implements the Ratchet MessageComponentInterface to handle
+ * WebSocket connections, chat messages, and real-time game state broadcasting.
+ */
+class GameServer implements MessageComponentInterface 
+{
+    // ========================================
+    // DEPENDENCIES & CONFIGURATION
+    // ========================================
+    
+    protected SplObjectStorage $clients; // Connected WebSocket clients
+    protected LoopInterface $loop; // ReactPHP event loop
+    protected AuthService $authService; // User authentication service
+    protected ChatMessageRepository $chatMessageRepository; // Chat data persistence
+    protected GameEngine $gameEngine; // Game logic and state management
 
-class GameServer implements MessageComponentInterface {
-    protected SplObjectStorage $clients;
-    protected LoopInterface $loop;
-    protected AuthService $authService;
-    protected ChatMessageRepository $chatMessageRepository;
-    protected GameEngine $gameEngine; // NEW: Instance of our game logic engine
-
-    // --- Message Handlers ---
+    // Message routing system
     /** @var array<string, MessageHandlerInterface> */
     private array $messageHandlers = [];
 
+    // ========================================
+    // CONSTRUCTOR & INITIALIZATION
+    // ========================================
+
     /**
-     * Constructor: Injects dependencies needed for both chat and game features.
-     * The order of arguments must match how they are passed in websocket-server.php.
-     * NEW: $gameEngine is now a dependency.
+     * Initialize GameServer with all required dependencies
+     * 
+     * @param AuthService $authService User authentication service
+     * @param ChatMessageRepository $chatMessageRepository Chat message persistence
+     * @param LoopInterface $loop ReactPHP event loop for timers
+     * @param GameEngine $gameEngine Game logic engine instance
      */
-    public function __construct(AuthService $authService, ChatMessageRepository $chatMessageRepository, LoopInterface $loop, GameEngine $gameEngine) {
+    public function __construct(
+        AuthService $authService, 
+        ChatMessageRepository $chatMessageRepository, 
+        LoopInterface $loop, 
+        GameEngine $gameEngine
+    ) {
         $this->clients = new SplObjectStorage;
         $this->authService = $authService;
         $this->chatMessageRepository = $chatMessageRepository;
         $this->loop = $loop;
-        $this->gameEngine = $gameEngine; // NEW: Assign GameEngine instance
+        $this->gameEngine = $gameEngine;
 
-        // No need to initialize game state here; GameEngine does it
         $this->registerMessageHandlers();
     }
 
     /**
-     * Registers all message handlers for different message types.
+     * Register all message type handlers for routing incoming WebSocket messages
+     * Each message type gets its own dedicated handler class
      */
-    private function registerMessageHandlers(): void {
+    private function registerMessageHandlers(): void 
+    {
         $this->messageHandlers['chat_message'] = new ChatMessageHandler();
         $this->messageHandlers['game_start_request'] = new GameStartHandler();
         $this->messageHandlers['game_stop_request'] = new GameStopHandler();
+        $this->messageHandlers['game_pause_request'] = new GamePauseHandler();
+        $this->messageHandlers['game_resume_request'] = new GameResumeHandler();
     }
 
-    // --- Getters for Handlers and GameEngine to access GameServer's properties/methods ---
-    public function getClients(): SplObjectStorage {
+    // ========================================
+    // DEPENDENCY ACCESS METHODS
+    // ========================================
+
+    /**
+     * Get connected clients collection (for message handlers)
+     */
+    public function getClients(): SplObjectStorage 
+    {
         return $this->clients;
     }
 
-    public function getLoop(): LoopInterface {
+    /**
+     * Get ReactPHP event loop (for message handlers)
+     */
+    public function getLoop(): LoopInterface 
+    {
         return $this->loop;
     }
 
-    public function getAuthService(): AuthService {
+    /**
+     * Get authentication service (for message handlers)
+     */
+    public function getAuthService(): AuthService 
+    {
         return $this->authService;
     }
 
-    public function getChatMessageRepository(): ChatMessageRepository {
+    /**
+     * Get chat message repository (for message handlers)
+     */
+    public function getChatMessageRepository(): ChatMessageRepository 
+    {
         return $this->chatMessageRepository;
     }
 
-    public function getGameEngine(): GameEngine { // NEW: Getter for GameEngine
+    /**
+     * Get game engine instance (for message handlers)
+     */
+    public function getGameEngine(): GameEngine 
+    {
         return $this->gameEngine;
     }
 
-    // --- Game Logic Methods (REMOVED from here, now in GameEngine) ---
-    // Instead, this class provides a method that GameEngine can call to broadcast state.
+    // ========================================
+    // GAME STATE BROADCASTING
+    // ========================================
+
     /**
-     * Broadcasts the current game ball state to all connected clients.
-     * This method is called by GameEngine.
-     * @param array $ballState The current state of the ball.
+     * Broadcast game state to all connected clients
+     * 
+     * This method serves as the callback for GameEngine's state updates.
+     * Handles both full game state and legacy ball-only state formats.
+     * 
+     * @param array $gameState Full game state OR just ball state from GameEngine
      */
-    public function broadcastGameState(array $ballState): void {
-        $message = json_encode([
-            'type' => 'game_state_update',
-            'ball' => [
-                'x' => round($ballState['x'], 2),
-                'y' => round($ballState['y'], 2),
-                'radius' => $ballState['radius'],
-                'color' => $ballState['color']
-            ]
-        ]);
-        foreach ($this->clients as $client) {
-            $client->send($message);
+    public function broadcastGameState(array $gameState): void 
+    {
+        try {
+            // Debug output for monitoring game state updates
+            // echo "Broadcasting game state: " . json_encode($gameState, JSON_PRETTY_PRINT) . "\n";
+
+            // ---- HANDLE DIFFERENT STATE FORMATS ----
+            // Support both full game state and legacy ball-only formats
+            if (isset($gameState['ball'])) {
+                // Full game state format (from GameEngine's broadcastCurrentState)
+                $ballData = $gameState['ball'];
+                $isRunning = $gameState['isRunning'] ?? false;
+                $isPaused = $gameState['isPaused'] ?? false;
+            } else {
+                // Ball-only format (legacy compatibility)
+                $ballData = $gameState;
+                $isRunning = false;
+                $isPaused = false;
+            }
+
+            // ---- VALIDATE BALL DATA STRUCTURE ----
+            if (!isset($ballData['x'], $ballData['y'], $ballData['radius'], $ballData['color'])) {
+                error_log("Invalid ball data structure: " . json_encode($ballData));
+                return;
+            }
+
+            // ---- CREATE STANDARDIZED MESSAGE FORMAT ----
+            $message = json_encode([
+                'type' => 'game_state_update',
+                'ball' => [
+                    'x' => round((float)$ballData['x'], 2),
+                    'y' => round((float)$ballData['y'], 2),
+                    'radius' => (int)$ballData['radius'],
+                    'color' => (string)$ballData['color']
+                ],
+                'gameStatus' => [
+                    'isRunning' => $isRunning,
+                    'isPaused' => $isPaused
+                ]
+            ]);
+
+            echo "Sending message: " . $message . "\n";
+
+            // ---- BROADCAST TO ALL CLIENTS ----
+            foreach ($this->clients as $client) {
+                $client->send($message);
+            }
+
+        } catch (\Exception $e) {
+            error_log("Error broadcasting game state: " . $e->getMessage());
         }
     }
 
-    // --- Ratchet MessageComponentInterface Methods ---
+    /**
+     * Send current game state to a specific client (used for new connections)
+     * 
+     * @param ConnectionInterface $client The client to send state to
+     */
+    private function sendGameStateToClient(ConnectionInterface $client): void
+    {
+        try {
+            // Get complete current game state from GameEngine
+            $fullGameState = $this->gameEngine->getGameState();
+            
+            // Create standardized message format
+            $message = json_encode([
+                'type' => 'game_state_update', 
+                'ball' => [
+                    'x' => round((float)$fullGameState['ball']['x'], 2),
+                    'y' => round((float)$fullGameState['ball']['y'], 2),
+                    'radius' => (int)$fullGameState['ball']['radius'],
+                    'color' => (string)$fullGameState['ball']['color']
+                ],
+                'gameStatus' => [
+                    'isRunning' => $fullGameState['isRunning'],
+                    'isPaused' => $fullGameState['isPaused']
+                ]
+            ]);
 
-    public function onOpen(ConnectionInterface $conn): void {
-        if (!$this->authService->authenticate($conn)) {
-            return;
+            $client->send($message);
+        } catch (\Exception $e) {
+            error_log("Error sending game state to client {$client->resourceId}: " . $e->getMessage());
         }
+    }
+
+    // ========================================
+    // CHAT MESSAGE BROADCASTING
+    // ========================================
+
+    /**
+     * Broadcast chat message to all connected clients
+     * 
+     * @param string $username The user who sent the message
+     * @param string $messageText The message content
+     * @param ConnectionInterface|null $from Optional sender to exclude from broadcast
+     */
+    public function broadcastChatMessage(string $username, string $messageText, ?ConnectionInterface $from = null): void 
+    {
+        $broadcastData = [
+            'type' => 'chat_message',
+            'user' => htmlspecialchars($username),
+            'message' => htmlspecialchars($messageText)
+        ];
+        $jsonMessage = json_encode($broadcastData);
+
+        // Send to all clients except the sender (if specified)
+        foreach ($this->clients as $client) {
+            if ($from === null || $client !== $from) {
+                $client->send($jsonMessage);
+            }
+        }
+    }
+
+    /**
+     * Broadcast system activity messages (user joins/leaves, etc.)
+     * 
+     * @param string $activityMessage The system message to broadcast
+     * @param ConnectionInterface|null $from Optional connection to exclude from broadcast
+     */
+    public function broadcastChatActivity(string $activityMessage, ?ConnectionInterface $from = null): void 
+    {
+        $broadcastData = [
+            'type' => 'chat_message',
+            'user' => 'System',
+            'message' => $activityMessage
+        ];
+        $jsonMessage = json_encode($broadcastData);
+
+        // Send to all clients except the specified connection (if any)
+        foreach ($this->clients as $client) {
+            if ($from === null || $client !== $from) {
+                $client->send($jsonMessage);
+            }
+        }
+    }
+
+    // ========================================
+    // WEBSOCKET CONNECTION LIFECYCLE
+    // ========================================
+
+    /**
+     * Handle new WebSocket connection
+     * Authenticates user, sends welcome messages, loads chat history, and syncs game state
+     */
+    public function onOpen(ConnectionInterface $conn): void 
+    {
+        // ---- AUTHENTICATION ----
+        if (!$this->authService->authenticate($conn)) {
+            return; // Authentication failed, connection will be closed
+        }
+        
+        // Add authenticated client to our collection
         $this->clients->attach($conn);
         echo "New connection ({$conn->resourceId}) authenticated for user: {$conn->username} (ID: {$conn->userId})!\n";
 
+        // ---- SEND WELCOME MESSAGE ----
         $conn->send(json_encode([
             'type' => 'chat_message',
             'user' => 'System',
             'message' => 'Welcome to the chatroom! Messages you send may be stored.'
         ]));
 
+        // ---- LOAD AND SEND RECENT CHAT HISTORY ----
         try {
             $recentMessages = $this->chatMessageRepository->getRecentMessages(5);
             if ($recentMessages) {
@@ -134,16 +322,22 @@ class GameServer implements MessageComponentInterface {
                 'message' => 'Could not retrieve recent messages.'
             ]));
         }
+
+        // ---- NOTIFY OTHER USERS ----
         $this->broadcastChatActivity("User {$conn->username} connected", $conn);
 
-        // On new connection, send initial game state from GameEngine
-        $this->broadcastGameState($this->gameEngine->getBallState());
+        // ---- SYNC GAME STATE ----
+        // Send current game state to newly connected client
+        $this->sendGameStateToClient($conn);
     }
 
     /**
-     * Refactored onMessage method to use message handlers.
+     * Handle incoming WebSocket messages
+     * Routes messages to appropriate handlers based on message type
      */
-    public function onMessage(ConnectionInterface $from, $msg): void {
+    public function onMessage(ConnectionInterface $from, $msg): void 
+    {
+        // ---- PARSE JSON MESSAGE ----
         $data = json_decode($msg, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
@@ -152,6 +346,7 @@ class GameServer implements MessageComponentInterface {
             return;
         }
 
+        // ---- VALIDATE MESSAGE TYPE ----
         $messageType = $data['type'] ?? null;
 
         if ($messageType === null || !isset($this->messageHandlers[$messageType])) {
@@ -160,56 +355,39 @@ class GameServer implements MessageComponentInterface {
             return;
         }
 
-        // Delegate handling to the specific MessageHandler
-        $this->messageHandlers[$messageType]->handle($from, $data, $this); // Pass $this (GameServer instance)
+        // ---- DELEGATE TO MESSAGE HANDLER ----
+        // Route the message to its specific handler class
+        $this->messageHandlers[$messageType]->handle($from, $data, $this);
     }
 
-    public function onClose(ConnectionInterface $conn): void {
+    /**
+     * Handle WebSocket connection closure
+     * Removes client from collection and notifies other users
+     */
+    public function onClose(ConnectionInterface $conn): void 
+    {
+        // Remove client from our collection
         $this->clients->detach($conn);
         echo "Connection {$conn->resourceId} has disconnected\n";
 
+        // ---- NOTIFY OTHER USERS ----
         $username = $conn->username ?? 'Guest';
         $this->broadcastChatActivity("User {$username} disconnected", $conn);
 
-        if ($this->clients->count() === 0 && $this->gameEngine->getGameLoopTimer() !== null) { // Check GameEngine's timer
-            // $this->gameEngine->stopServerGameLoop(); // Uncomment if game should stop when all clients disconnect
+        // ---- OPTIONAL: AUTO-STOP GAME ----
+        // Uncomment to automatically stop game when all clients disconnect
+        if ($this->clients->count() === 0 && $this->gameEngine->getGameLoopTimer() !== null) {
+            // $this->gameEngine->stopServerGameLoop();
         }
     }
 
-    public function onError(ConnectionInterface $conn, \Exception $e): void {
+    /**
+     * Handle WebSocket connection errors
+     * Logs error and closes the problematic connection
+     */
+    public function onError(ConnectionInterface $conn, \Exception $e): void 
+    {
         error_log("An error has occurred on connection {$conn->resourceId}: {$e->getMessage()}");
         $conn->close();
-    }
-
-    // --- Chat Specific Broadcast Methods (already present) ---
-
-    public function broadcastChatMessage(string $username, string $messageText, ?ConnectionInterface $from = null): void {
-        $broadcastData = [
-            'type' => 'chat_message',
-            'user' => htmlspecialchars($username),
-            'message' => htmlspecialchars($messageText)
-        ];
-        $jsonMessage = json_encode($broadcastData);
-
-        foreach ($this->clients as $client) {
-            if ($from === null || $client !== $from) {
-                $client->send($jsonMessage);
-            }
-        }
-    }
-
-    public function broadcastChatActivity(string $activityMessage, ?ConnectionInterface $from = null): void {
-        $broadcastData = [
-            'type' => 'chat_message',
-            'user' => 'System',
-            'message' => $activityMessage
-        ];
-        $jsonMessage = json_encode($broadcastData);
-
-        foreach ($this->clients as $client) {
-            if ($from === null || $client !== $from) {
-                $client->send($jsonMessage);
-            }
-        }
     }
 }
