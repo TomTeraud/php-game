@@ -16,9 +16,9 @@ export class GameStatsOverlay {
       ballY: Math.round(gameState.ball?.y || 0),
       ballRadius: gameState.ball?.radius || 0,
       ballColor: gameState.ball?.color || 'unknown',
-      gameRunning: gameState.isRunning || false,
-      isPaused: gameState.isPaused || false,
-      connectionStatus: gameState.connected ? 'Connected' : 'Disconnected',
+      // gameRunning: gameState.isRunning || false,
+      // isPaused: gameState.isPaused || false,
+      // connectionStatus: gameState.connected ? 'Connected' : 'Disconnected',
       fps: gameState.fps || 0,
       lastUpdate: new Date().toLocaleTimeString()
     };
@@ -32,12 +32,12 @@ export class GameStatsOverlay {
 
     // Semi-transparent background
     this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    this.ctx.fillRect(10, 10, 200, 180);
+    this.ctx.fillRect(10, 10, 200, 100);
 
     // Border
     this.ctx.strokeStyle = '#00ff00';
     this.ctx.lineWidth = 1;
-    this.ctx.strokeRect(10, 10, 200, 180);
+    this.ctx.strokeRect(10, 10, 200, 100);
 
     // Text styling
     this.ctx.fillStyle = '#00ff00';
@@ -55,11 +55,11 @@ export class GameStatsOverlay {
       `Ball Y: ${this.stats.ballY}`,
       `Radius: ${this.stats.ballRadius}`,
       `Color: ${this.stats.ballColor}`,
-      `Running: ${this.stats.gameRunning}`,
-      `Paused: ${this.stats.isPaused}`,
-      `Connection: ${this.stats.connectionStatus}`,
-      `FPS: ${this.stats.fps}`,
-      `Updated: ${this.stats.lastUpdate}`
+      // `Running: ${this.stats.gameRunning}`,
+      // `Paused: ${this.stats.isPaused}`,
+      // `Connection: ${this.stats.connectionStatus}`,
+      // `FPS: ${this.stats.fps}`,
+      // `Updated: ${this.stats.lastUpdate}`
     ];
 
     statLines.forEach((line, index) => {

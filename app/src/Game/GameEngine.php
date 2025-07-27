@@ -325,4 +325,14 @@ class GameEngine
             $this->gameLoopTimer = null;
         }
     }
+
+        /**
+     * Update the broadcast callback (used for dependency injection)
+     * 
+     * @param callable $broadcastCallback New broadcast callback function
+     */
+    public function setBroadcastCallback(callable $broadcastCallback): void
+    {
+        $this->broadcastCallback = $broadcastCallback;
+    }
 }
