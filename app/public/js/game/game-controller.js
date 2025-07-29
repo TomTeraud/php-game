@@ -37,17 +37,9 @@ export class GameController {
 
   setupUIElements() {
     this.uiController.registerElements({
-      // 'startButton': 'startGameButton',
-      // 'stopButton': 'stopGameButton',
-      // 'pauseButton': 'pauseGameButton',
-      // 'resumeButton': 'resumeGameButton',
       'statsToggle': 'statsToggleButton'
     });
 
-    // this.uiController.registerClickListener('startButton', () => this.startGame());
-    // this.uiController.registerClickListener('stopButton', () => this.stopGame());
-    // this.uiController.registerClickListener('pauseButton', () => this.pauseGame());
-    // this.uiController.registerClickListener('resumeButton', () => this.resumeGame());
     this.uiController.registerClickListener('statsToggle', () => this.toggleStats());
   }
 
@@ -56,11 +48,6 @@ export class GameController {
       this.statsOverlay.updateStats(state);
       this.renderer.render(state);
       this.statsOverlay.render();
-      // this.uiController.updateButtonStates({
-      //   'startButton': !state.isRunning,
-      //   'stopButton': state.isRunning,
-      //   'pauseButton': state.isRunning && !state.isPaused
-      // });
     });
   }
 
@@ -83,42 +70,4 @@ export class GameController {
     this.renderer.render(this.gameState);
     this.uiController.updateButtonStates(this.gameState.isRunning);
   }
-
-  // startGame() {
-  //   if (this.websocketManager.isConnected()) {
-  //     this.websocketManager.send({ type: 'game_start_request' });
-  //     this.gameState.setPaused(false);
-  //     this.gameState.setRunning(true);
-  //     console.log("Sent game_start_request to server.");
-  //   } else {
-  //     console.warn("WebSocket not open. Attempting to reconnect.");
-  //     this.websocketManager.connect();
-  //   }
-  // }
-
-//   stopGame() {
-//     if (this.websocketManager.isConnected()) {
-//       this.websocketManager.send({ type: 'game_stop_request' });
-//       console.log("Sent game_stop_request to server.");
-//     }
-//     this.gameState.setRunning(false);
-//   }  
-  
-//   pauseGame() {
-//     if (this.websocketManager.isConnected()) {
-//       this.websocketManager.send({ type: 'game_pause_request' });
-//       console.log("Sent game_pause_request to server.");
-//     }
-//     // this.gameState.setRunning(false);
-//     this.gameState.setPaused(true);
-//   }
-
-//   resumeGame() {
-//     if (this.websocketManager.isConnected()) {
-//       this.websocketManager.send({ type: 'game_resume_request' });
-//       console.log("Sent game_resume_request to server.");
-//     }
-//     // this.gameState.setRunning(false);
-//     this.gameState.setPaused(false);
-//   }
 }

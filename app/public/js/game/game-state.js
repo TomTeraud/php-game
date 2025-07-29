@@ -7,8 +7,6 @@ export class GameState {
       color: '#3498db'
     };
     this.isRunning = false;
-    // this.isPaused = false;
-    // this.connected = false;
     this.fps = 0;
     this.listeners = [];
 
@@ -22,21 +20,11 @@ export class GameState {
     this.notifyListeners();
   }
 
-  // setConnected(connected) {
-  //   this.connected = connected;
-  //   this.notifyListeners();
-  // }
-
-  // setRunning(running) {
-  //   this.isRunning = running;
-  //   this.notifyListeners();
-  // }  
+  setRunning(running) {
+    this.isRunning = running;
+    this.notifyListeners();
+  }  
   
-  // setPaused(paused) {
-  //   this.isPaused = paused;
-  //   this.notifyListeners();
-  // }
-
   addListener(listener) {
     this.listeners.push(listener);
   }

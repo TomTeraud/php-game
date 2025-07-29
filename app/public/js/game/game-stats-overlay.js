@@ -16,9 +16,6 @@ export class GameStatsOverlay {
       ballY: Math.round(gameState.ball?.y || 0),
       ballRadius: gameState.ball?.radius || 0,
       ballColor: gameState.ball?.color || 'unknown',
-      // gameRunning: gameState.isRunning || false,
-      // isPaused: gameState.isPaused || false,
-      // connectionStatus: gameState.connected ? 'Connected' : 'Disconnected',
       fps: gameState.fps || 0,
       lastUpdate: new Date().toLocaleTimeString()
     };
@@ -55,11 +52,6 @@ export class GameStatsOverlay {
       `Ball Y: ${this.stats.ballY}`,
       `Radius: ${this.stats.ballRadius}`,
       `Color: ${this.stats.ballColor}`,
-      // `Running: ${this.stats.gameRunning}`,
-      // `Paused: ${this.stats.isPaused}`,
-      // `Connection: ${this.stats.connectionStatus}`,
-      // `FPS: ${this.stats.fps}`,
-      // `Updated: ${this.stats.lastUpdate}`
     ];
 
     statLines.forEach((line, index) => {

@@ -14,8 +14,6 @@ const MyGame = (() => {
   
   // Public API
   return {
-    startGame: () => gameController?.startGame(),
-    stopGame: () => gameController?.stopGame(),
     initialize
   };
 })();
